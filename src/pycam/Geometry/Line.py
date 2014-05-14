@@ -68,6 +68,7 @@ class Line(TransformableContainer):
 
     def __eq__(self, other) :
         return cmp(self, other) == 0
+        #return hash(self) == hash(other)
 
     @property
     def vector(self):

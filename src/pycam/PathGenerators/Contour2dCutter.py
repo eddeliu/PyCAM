@@ -62,28 +62,28 @@ class QuadraCase(Case) :
                     (self.z)*Case.grille.padz+Case.grille.minz) # obtention du centre du "plancher"
     @property
     def interieure(self) :
-        print("Case : %r" % self)
+        #print("Case : %r" % self)
         p1 = self.get_centre()
-        print("P1 : %r" % p1)
+        #print("P1 : %r" % p1)
         p2 = Point(Case.grille.minx-1, p1.y, p1.z)
-        print("P2 : %r" % p2)
+        #print("P2 : %r" % p2)
         fuyante = Line(p1, p2)
         sections = 0
         case = self
         lignes = set() # gère la duplicité des lignes fondues au pavage
         while case.x != 0 :
             case = case.get_voisin(0, -1, 0)
-            print("Etape : %r" % case)
+            #print("Etape : %r" % case)
             for ligne in case.lignes :
-                if ligne not in lignes :
-                    print("\tLigne : %s" % ligne)
+                if ligne.id not in lignes :
+                    #print("\tLigne : %s" % ligne)
                     sec, d = fuyante.get_intersection(ligne)
                     if sec is not None :
-                        print("\t\tIntersection : %s" % sec)
+                        #print("\t\tIntersection : %s" % sec)
                         sections += 1
-                    lignes.add(ligne)
-                else :
-                    print("\tLigne deja rencontre : %s" % ligne)
+                    lignes.add(ligne.id)
+                #else :
+                    #print("\tLigne deja rencontre : %s" % ligne)
         return sections%2 == 1
     @staticmethod
     def get_emplacement(x, y, z) :
@@ -275,8 +275,7 @@ class Contour2dCutter(object) :
         # le modèle ne permet pas de sélectionner des triangles par Z
         # donc récupération de tous les triangles
         triangles = self.model.triangles()
-        for t in triangles :
-            print "%s\n\t%s\n\t%s\n\t%s" % (t, t.e1, t.e2, t.e3)
+        #for t in triangles : print "%s\n\t%s\n\t%s\n\t%s" % (t, t.e1, t.e2, t.e3)
         equations = {}
 
         Point.__hash__ = lambda self : hash(" ".join([str(self.x), str(self.y), str(self.z)])) # TODO
@@ -316,7 +315,7 @@ class Contour2dCutter(object) :
             # finalement projection des segments
             for ligne in a_projeter :
                 projete = planInf.get_line_projection(ligne)
-                print "Ligne %s a donne %s" % (ligne, projete)
+                #print "Ligne %s a donne %s" % (ligne, projete)
                 self.grille.discretiser_ligne(projete)
         self.grille.dessinerContourPBM()
         self.pa.initialiser(self.grille)
@@ -449,7 +448,7 @@ class Contour2dCutter(object) :
         #print triangle.e2
         #print triangle.e3
         if triangle.center.z == planInf.p.z and (triangle.normal.z == 1 or triangle.normal.z == -1) :
-            print "Triangle ignoré pour cause d'horizontalité : %s" % triangle
+            #print "Triangle ignoré pour cause d'horizontalité : %s" % triangle
             return []
         return Contour2dCutter.sectionnerTriangle(
                 Contour2dCutter.ligneEntreDeuxPlans(triangle.e1, planInf, planSup),

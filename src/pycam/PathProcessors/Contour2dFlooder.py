@@ -121,15 +121,15 @@ class Contour2dFlooder(BasePathProcessor) :
             for y in range(self.maxy) :
                 case = self._tranche[x][y]
                 if not case.parcourue and case.libre :
-                    print "Case %r appartient à une poche "%case
+                    #print "Case %r appartient à une poche "%case
                     if not case.interieure :
-                        print "\nEX TERIEURE\n\n\n"
+                        #print "\nEX TERIEURE\n\n\n"
                         interieures.append(Poche())
                         self.flooder(case, interieures[-1].cases)
                     else :
-                        print "\nIN TERIEURE\n\n\n"
+                        #print "\nIN TERIEURE\n\n\n"
                         self.flooder(case, [])
-        print("Fin de traiter poches : %s poches trouvées" % len(interieures))
+        #print("Fin de traiter poches : %s poches trouvées" % len(interieures))
         return interieures
 
     def flooder(self, case, poche) :
