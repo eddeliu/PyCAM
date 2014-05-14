@@ -1,7 +1,0 @@
-pycam (0.5.1-1) unstable; urgency=low
-
-  * initial debian package
-  * Closes: #600779
-
- -- Lars Kruse <devel@sumpfralle.de>  Mon, 13 Jun 2011 02:04:59 +0200
-

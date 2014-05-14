@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-$Id$
+$Id: setup.py 1093 2011-06-13 17:00:28Z sumpfralle $
 
 Copyright 2010 Lars Kruse <devel@sumpfralle.de>
 Copyright 2010 Arthur Magill
@@ -22,23 +22,19 @@ You should have received a copy of the GNU General Public License
 along with PyCAM.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
-
+from distutils.core import setup
 import distutils.sysconfig
 import glob
 import os.path
 import sys
 import shutil
-
+# add the local pycam source directory to the PYTHONPATH
 BASE_DIR = os.path.realpath(os.path.abspath(os.path.dirname(__file__)))
-
+sys.path.insert(0, os.path.join(BASE_DIR, "src"))
 from pycam import VERSION
 
-WINDOWS_START_SCRIPT = os.path.join("scripts", "pycam-loader.py")
-DEFAULT_START_SCRIPT = os.path.join("scripts", "pycam")
+WINDOWS_START_SCRIPT = "pycam-loader.py"
+DEFAULT_START_SCRIPT = "pycam"
 
 # we don't want to include the windows postinstall script in other installers
 is_windows_installer = "bdist_wininst" in sys.argv or "bdist_msi" in sys.argv
@@ -46,8 +42,7 @@ is_windows_installer = "bdist_wininst" in sys.argv or "bdist_msi" in sys.argv
 if is_windows_installer:
     shutil.copy2(os.path.join(BASE_DIR, DEFAULT_START_SCRIPT),
             os.path.join(BASE_DIR, WINDOWS_START_SCRIPT))
-    PLATFORM_SCRIPTS = [WINDOWS_START_SCRIPT,
-            os.path.join("scripts", "pycam_win32_postinstall.py")]
+    PLATFORM_SCRIPTS = [WINDOWS_START_SCRIPT, "pycam_win32_postinstall.py"]
 else:
     PLATFORM_SCRIPTS = [DEFAULT_START_SCRIPT]
 
@@ -85,6 +80,7 @@ Windows: select Python 2.5 in the following dialog.
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX",
     ],
+    package_dir={'': 'src'},
     packages=[
         "pycam",
         "pycam.Cutters",
@@ -95,7 +91,6 @@ Windows: select Python 2.5 in the following dialog.
         "pycam.PathGenerators",
         "pycam.PathProcessors",
         "pycam.Physics",
-        "pycam.Plugins",
         "pycam.Simulation",
         "pycam.Toolpath",
         "pycam.Utils",
