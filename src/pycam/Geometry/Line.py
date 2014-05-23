@@ -36,19 +36,6 @@ except ImportError:
     GL_enabled = False
 
 
-def _is_near(x, y):
-    return abs(x - y) < epsilon
-def Equation2D(x1, y1, x2, y2):
-    # attention aux erreurs d'arrondi
-    if _is_near(x1, x2) :
-        return "x=%s" % x1
-    else:
-        a = (y2-y1)/(x2-x1)
-        #b = y2 - a * x2
-        return "y=%sx+%s" % (a, y2-a*x2)
-
-
-
 class Line(TransformableContainer):
     id = 0
 
@@ -59,16 +46,6 @@ class Line(TransformableContainer):
         self.p1 = p1
         self.p2 = p2
         self.reset_cache()
-
-    def __hash__(self):
-        equation_1 = Equation2D(self.p1.x, self.p1.y, self.p2.x, self.p2.y)
-        equation_2 = Equation2D(self.p1.x, self.p1.z, self.p2.x, self.p2.z)
-        equation_3 = Equation2D(self.p1.y, self.p1.z, self.p2.y, self.p2.z)
-        return hash(' '.join([equation_1, equation_2, equation_3]))
-
-    def __eq__(self, other) :
-        return cmp(self, other) == 0
-        #return hash(self) == hash(other)
 
     @property
     def vector(self):

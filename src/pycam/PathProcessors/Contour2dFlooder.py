@@ -1,30 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-trucs
+stuff
 """
 
 from pycam.PathProcessors import BasePathProcessor
-# utilise GrilleDiscrete et CaseDeGrille//Case de Contour2dCutter
+# use Grid and Box objects from Contour2dCutter
 
 
-class Poche(object) :
-
+class Pocket(object) :
     id = 1
 
     def __init__(self) :
-        self.id = Poche.id
-        Poche.id += 1
-        self.sur_poche = None
-        self.cases = []
-        self.sous_poches = []
+        self.id = Pocket.id
+        Pocket.id += 1
+        self.pocket_above = None
+        self.boxes = []
+        self.pockets_underneath = []
 
     @property
-    def fond(self) : return not self.sous_poches
+    def bottom(self) : return not self.pockets_underneath
 
     def __str__(self) :
-        return("Poche%s (%s / %s)\n" % (self.id, self.sur_poche.id if self.sur_poche else "None", \
-            ','.join(str(sous.id) for sous in self.sous_poches)) \
-            + '\n\t'.join(repr(case) for case in self.cases))
+        return("Pocket %s (%s / %s)\n" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
+            ','.join(str(pocket.id) for pocket in self.pockets_underneath)) \
+            + '\n\t'.join(str(box) for box in self.boxes))
 
 class Contour2dFlooder(BasePathProcessor) :
 
@@ -33,149 +32,145 @@ class Contour2dFlooder(BasePathProcessor) :
         self.maxx = None
         self.maxy = None
         self.maxz = None
-        self.grille = None
-        self._tranche = None
+        self.grid = None
+        self._layer = None
 
-    def initialiser(self, grille) :
-        self.maxx = grille.nb_lignes - 1
-        self.maxy = grille.nb_colonnes - 1
-        self.maxz = grille.nb_tranches - 1
-        self.grille = grille
+    def initialise(self, grid) :
+        self.maxx = grid.nb_lines - 1
+        self.maxy = grid.nb_columns - 1
+        self.maxz = grid.nb_layers - 1
+        self.grid = grid
 
-    def traiterGrille(self) :
-        for tranche in range(self.maxz+1) :
-            self.traiterTranche(self.maxz-tranche)
-            #break
-        self.dessinerPochesPBM() # TODO
+    def do_path(self) :
+        for layer in xrange(self.maxz+1) :
+            self.do_layer(self.maxz - layer)
+        self.draw_pocket_PBM()
 
-    def traiterTranche(self, tranche) :
-        self._tranche = self.grille.tranches[tranche]
-        #self.afficherTranche()
-        #print("Surplomb :");
-        #self.traiterSurplombs()
-        #self.afficherTranche()
-        #print("Exterieurs :");
-        exterieures = self.traiterExterieures()
-        #print("Poches interieures de la tranche :", tranche)
-        interieures = self.traiterInterieures()
-        self.lierPoches(exterieures+interieures)
-        #print("*" * 50 + "\n")
-        #print("POCHES EX TERIEURES")
-        #for poche in exterieures :
-            #print(poche)
-        #print("\nPOCHES IN TERIEURES")
-        #for poche in poches :
-            #print(poche)
-        #print("\n" + "*" * 50)
-        #self.afficherTranche()
+    def do_layer(self, layer) :
+        self._layer = self.grid.layers[layer]
+        outside = self.do_outside()
+        inside = self.do_inside()
+        self.link_pockets(outside+inside)
+        self.do_overhang()
 
-    def afficherTranche(self) :
+    def display_layer(self) :
         print '\n'*20
-        for ligne in self._tranche :
-            for colonne in ligne :
-                print "%s"%colonne,
+        for line in self._layer :
+            for column in line :
+                print "%s"%column.sq(),
             print ''
 
-    def traiterSurplombs(self) : # TODO: utile ?
-        for x in range(self.maxx) :
-            for y in range(self.maxy) :
-                case = self._tranche[x][y]
-                if not case.libre :
-                    #print("%r est un surplomb" % case)
-                    case.parcourue = True
-                    while case.z != 0 :
-                        case = self.grille.get_case(case.z-1, x, y)
-                        case.parcourue = True
-                        #print("\t%r est surplombe" % case)
+    def do_overhang(self) :
+        for x in xrange(self.maxx) :
+            for y in xrange(self.maxy) :
+                box = self._layer[x][y]
+                if not box.free :
+                    while box.z != 0 :
+                        box = box.get_neighbour(0, 0, -1)
+                        box.scan = True
 
-    def traiterExterieures(self) :
-        exterieures = []
-        case = self._tranche[0][0]
-        direction = 0
-        # direction 0 : incrémenter x
-        # direction 1 : incrémenter y
-        # direction 2 : décrémenter x
-        # direction 3 : décrémenter y
-        while direction != 4 : # TODO: remplacer par 4 for directionnelles ?
-            #print("%r case exterieure ?" % case)
-            if case.libre and not case.parcourue :
-                #print("\t%r est une nouvelle poche" % case)
-                exterieures.append(Poche())
-                self.flooder(case, exterieures[-1].cases)
+    def do_outside(self) :
+        outside = []
+        box = self._layer[0][0]
+        for x in xrange(self.maxx+1-1) :
+            if box.free and not box.scan :
+                outside.append(Pocket())
+                self.flood(box, outside[-1].boxes)
             else :
-                case.parcourue = True
-                case = case.get_voisin(*((0, 1, 0),
-                                        (0, 0, 1),
-                                        (0, -1, 0),
-                                        (0, 0, -1))[direction])
-                if direction == 0 and case.x == self.maxx or \
-                        direction == 1 and case.y == self.maxy or \
-                        direction == 2 and case.x == 0 or \
-                        direction == 3 and case.y == 0 :
-                    direction += 1
-        return exterieures
+                box.scan = True
+            box = box.get_neighbour(1, 0, 0)
+        for y in xrange(self.maxy+1-1) :
+            if box.free and not box.scan :
+                outside.append(Pocket())
+                self.flood(box, outside[-1].boxes)
+            else :
+                box.scan = True
+            box = box.get_neighbour(0, 1, 0)
+        for x in xrange(self.maxx+1-1) :
+            if box.free and not box.scan :
+                outside.append(Pocket())
+                self.flood(box, outside[-1].boxes)
+            else :
+                box.scan = True
+            box = box.get_neighbour(-1, 0, 0)
+        for y in xrange(self.maxy+1-2) : # -2 to not iterate again on [0][0]
+            if box.free and not box.scan :
+                outside.append(Pocket())
+                self.flood(box, outside[-1].boxes)
+            else :
+                box.scan = True
+            box = box.get_neighbour(0, -1, 0)
+        return outside
 
-    def traiterInterieures(self) :
-        interieures = []
-        for x in range(self.maxx) : # TODO: modifier les range pour éviter de parcourir à nouveau les bordures
-            for y in range(self.maxy) :
-                case = self._tranche[x][y]
-                if not case.parcourue and case.libre :
-                    #print "Case %r appartient à une poche "%case
-                    if not case.interieure :
-                        #print "\nEX TERIEURE\n\n\n"
-                        interieures.append(Poche())
-                        self.flooder(case, interieures[-1].cases)
+    def do_inside(self) :
+        inside = []
+        for x in xrange(1, self.maxx) :
+            for y in xrange(1, self.maxy) :
+                box = self._layer[x][y]
+                if not box.scan and box.free :
+                    if not box.inside :
+                        inside.append(Pocket())
+                        self.flood(box, inside[-1].boxes)
                     else :
-                        #print "\nIN TERIEURE\n\n\n"
-                        self.flooder(case, [])
-        #print("Fin de traiter poches : %s poches trouvées" % len(interieures))
-        return interieures
+                        self.flood(box, [])
+        return inside
 
-    def flooder(self, case, poche) :
-        # via http://en.wikipedia.org/wiki/Flood_fill#Alternative_implementations
-        # implémentation de l'algorithme de remplissage par diffusion
-        # avec utilisation d'une pile et emploi de deux boucles (Est et Ouest)
-        pile = []
-        if not case.libre : return
-        pile.append(case)
-        while pile :
-            centre = pile.pop()
-            if centre.libre and not centre.parcourue :
-                ouest = est = centre
+    def flood(self, box, pocket) :
+        # see http://en.wikipedia.org/wiki/Flood_fill#Alternative_implementations
+        # implementation of the algorithme of flood-fill
+        # using a stack and 2 loops (east and west)
+        if not box.free : return
+        stack = []
+        stack.append(box)
+        while stack :
+            center = stack.pop()
+            if (not center.scan) and center.free :
+                west = east = center
                 while True :
-                    if ouest.y == 0 : break
-                    _ouest = ouest.get_voisin(0, 0, -1)
-                    if not _ouest.libre or _ouest.parcourue : break # TODO: enlever le test parcourue -> rapidité ? exactitude ?
-                    else : ouest = _ouest
+                    if west.y == 0 : break
+                    _west = west.get_neighbour(0, -1, 0)
+                    if (not _west.free) or _west.scan : break # TODO: remove test "scan" -> speed ? prcision ?
+                    else : west = _west
                 while True :
-                    if est.y == self.maxy : break
-                    _est = est.get_voisin(0, 0, 1)
-                    if not _est.libre or _est.parcourue : break # TODO: idem
-                    else : est = _est
-                for y in range(ouest.y, est.y+1) :
-                    c = case.get_case(centre.x, y, centre.z)
-                    c.parcourue = True
-                    poche.append(c)
-                    nord = c.get_voisin(0, 1, 0)
-                    if nord.libre : pile.append(nord)
-                    sud = c.get_voisin(0, -1, 0)
-                    if sud.libre : pile.append(sud)
+                    if east.y == self.maxy : break
+                    _east = east.get_neighbour(0, 1, 0)
+                    if (not _east.free) or _east.scan : break # TODO: idem
+                    else : east = _east
+                for y in range(west.y, east.y+1) :
+                    b = box.get_box(center.x, y, center.z)
+                    b.scan = True
+                    pocket.append(b)
+                    if b.x != self.maxx :
+                        north = b.get_neighbour(1, 0, 0)
+                        if north.free : stack.append(north)
+                    if b.x != 0 :
+                        south = b.get_neighbour(-1, 0, 0)
+                        if south.free : stack.append(south)
 
-    def lierPoches(self, poches) :
-        for poche in poches :
-            if poche.cases[0].z != self.maxz :
-                poche.sur_poche = poche.cases[0].get_voisin(1, 0, 0).poche
-            for case in poche.cases :
-                case.poche = poche
+    def link_pockets(self, pockets) :
+        for pocket in pockets :
+            if pocket.boxes[0].z != self.maxz :
+                pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, 1).pocket
+                self.link_pocket(pocket)
+            else :
+                pocket.pocket_above = 0
+                self.link_pocket(pocket)
+            pocket.boxes[0].export_your_graph_of_shortest_paths()
 
-    def dessinerPochesPBM(self) :
-        for nb_tranche in range(self.grille.nb_tranches) :
-            with open("poche_%d.pbm"%(nb_tranche+1), "w") as fichier :
-                fichier.write("P1\n")
-                fichier.write("# %d/%d\n"%(nb_tranche+1, self.grille.nb_tranches))
-                fichier.write("%d %d\n"%(self.grille.nb_colonnes, self.grille.nb_lignes))
-                for ligne in range(self.grille.nb_lignes) :
-                    fichier.write(' '.join(['0' if case.poche else '1'
-                            for case in self.grille.tranches[nb_tranche][ligne]])+'\n')
+    def link_pocket(self, pocket) :
+        for box in pocket.boxes :
+            box.pocket = pocket
+            box.know_your_free_neighbours()
+        for box in pocket.boxes :
+            box.know_your_pocket_neighbourhood()
+
+    def draw_pocket_PBM(self) :
+        for nb_layer in xrange(self.grid.nb_layers) :
+            with open("pocket_%d.pbm"%(nb_layer+1), "w") as pocketfile :
+                pocketfile.write("P1\n")
+                pocketfile.write("# %d/%d\n"%(nb_layer+1, self.grid.nb_layers))
+                pocketfile.write("%d %d\n"%(self.grid.nb_columns, self.grid.nb_lines))
+                for line in range(self.grid.nb_lines) :
+                    pocketfile.write(' '.join(['0' if box.pocket else '1'
+                            for box in self.grid.layers[nb_layer][line]])+'\n')
 
