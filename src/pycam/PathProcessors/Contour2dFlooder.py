@@ -25,6 +25,16 @@ class Pocket(object) :
             ','.join(str(pocket.id) for pocket in self.pockets_underneath)) \
             + '\n\t'.join(str(box) for box in self.boxes))
 
+class DisjointSet(object) :
+    def find(self, value) :
+        if value != value._repr :
+            value._repr = self.find(value._repr)
+        return value._repr
+    def union(self, value, other_value) : # 2nd value's repr is 1st value one's
+        self.find(other_value)._repr = self.find(value)._repr
+    def add(self, value) :
+        value._repr = value
+
 class Contour2dFlooder(BasePathProcessor) :
 
     def __init__(self) :
@@ -155,7 +165,7 @@ class Contour2dFlooder(BasePathProcessor) :
             else :
                 pocket.pocket_above = 0
                 self.link_pocket(pocket)
-            pocket.boxes[0].export_your_graph_of_shortest_paths()
+            #pocket.boxes[0].export_your_graph_of_shortest_paths()
 
     def link_pocket(self, pocket) :
         for box in pocket.boxes :

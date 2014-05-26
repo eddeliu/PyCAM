@@ -35,7 +35,7 @@ class Box(object) :
         self.pocket = None
         self.free_neighbours = []
     def __lt__(self, other) :
-        # used in Dijkstra's algorithm implementation by heapq
+        # used in Dijkstra's algorithm implementation by heapq.heappush
         return self._distance < other._distance
     @property
     def free(self) : return len(self.lines) == 0
@@ -172,8 +172,8 @@ class HexaBox(Box) :
         push = heapq.heappush
         m = Box.grid.matrix
         m[self.index][self.index] = (0, self)
-        for neighbour in self.free_neighbours : neighbour._distance = 1
-        neighbours_left = heapq.heapify(self.free_neighbours[:])
+        neighbours_left = [self]
+        self._distance = 0
         while neighbours_left :
             nearest = pop(neighbours_left)
             new_distance = nearest._distance + 1
@@ -181,7 +181,7 @@ class HexaBox(Box) :
                 previous_distance = m[self.index][neighbour.index][0]
                 if previous_distance is None :
                     neighbour._distance = new_distance
-                    m[self.index][neighbours.index] = (new_distance, nearest)
+                    m[self.index][neighbour.index] = (new_distance, nearest)
                     push(neighbours_left, neighbour)
                 # else the path would be anyway equally long or longer
     def export_your_graph_of_shortest_paths(self) :
@@ -193,7 +193,7 @@ class HexaBox(Box) :
         pathfile.write('\tnode [shape=hexagon]\n')
         if self.pocket :
             for vertex in self.pocket.boxes :
-                pathfile.write('\t%s -- %s [%s];\n'%(this, vertex.viz(), m[ind][vertex.index]))
+                pathfile.write('\t%s -- %s [%s];\n'%(this, vertex.viz(), m[ind][vertex.index][0]))
         pathfile.write('}\n')
         pathfile.close()
         gridfile = open('grid.dot', 'w')
@@ -234,7 +234,16 @@ class Grid(object) :
         self.do_pavement()
         self.nb_boxes_per_layer = self.nb_lines*self.nb_columns
         self.nb_boxes_total = self.nb_boxes_per_layer*self.nb_layers
-        self.matrix = [[(None, None)]*self.nb_boxes_total]*self.nb_boxes_total
+        self.matrix = []
+        print self.nb_boxes_total
+        print self.nb_boxes_total*self.nb_boxes_total
+        for i in range(self.nb_boxes_total) :
+            self.matrix.append([])
+            for j in range(self.nb_boxes_total) :
+                self.matrix[i].append([None, None])
+        print 'matrix created'
+        import sys
+        print sys.getsizeof(self.matrix)
     def do_pavement(self) :
         raise NotImplementedError("Abstract Grid.do_pavement")
     def iterate_on_layers(self) :
