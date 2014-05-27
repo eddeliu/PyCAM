@@ -1,24 +1,26 @@
 class DisjointSet(object) :
-	def __init__(self) :
-		self.values = set()
-	def add(self, value) :
-		self.values.add(value)
-		value._representative = value
-	def union(self, value, other_value) : # repr of 1st value become repr of 2nd value
-		self.find(other_value)._representative = self.find(value)._representative
-	def find(self, value) :
-		if value != value._representative :
-			value._representative = self.find(value._representative)
-		return value._representative
-	def select(self, value) :
-		representative = self.find(value)
-		return filter(lambda val : self.find(val) == representative, self.values)
-	def card(self, value) :
-		return len(self.select(value))
-	def disp(self) :
-		print('Disjoint set')
-		print(' '.join('{0}'.format(value._representative, 3) for value in self.values))
-		print(' '.join('{0}'.format(value, 3) for value in self.values))
+    def __init__(self) :
+        self.values = set()
+    def add(self, value) :
+        self.values.add(value)
+        value._representative = value
+    def union(self, value, other_value) :
+        # repr of 1st value become repr of 2nd value
+        self.find(other_value)._representative = \
+            self.find(value)._representative
+    def find(self, value) :
+        if value != value._representative :
+            value._representative = self.find(value._representative)
+        return value._representative
+    def select(self, value) :
+        rep = self.find(value)
+        return filter(lambda val : self.find(val) == rep, self.values)
+    def card(self, value) :
+        return len(self.select(value))
+    def disp(self) :
+        print('Disjoint set')
+        print(' '.join('{0}'.format(value._representative, 3) for value in self.values))
+        print(' '.join('{0}'.format(value, 3) for value in self.values))
 
 class Value(int) : pass
 

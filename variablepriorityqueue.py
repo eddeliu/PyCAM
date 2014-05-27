@@ -6,9 +6,7 @@ class VariablePriorityQueue(object) :
 		self.n_export = 0
 	def make(self, l) :
 		for elem in l :
-			#self.disp()
 			self.add(elem)
-		#self.disp()
 	def add(self, elem) :
 		self.position[elem] = len(self.queue)
 		self.queue.append(elem)
@@ -26,12 +24,10 @@ class VariablePriorityQueue(object) :
 	def up(self, elem) :
 		index_elem = self.position[elem]
 		while True :
-			index_parent = ((index_elem-2 if not index_elem%2 else index_elem)//2) \
-														if index_elem>0 else 0
-			#print '\tindex_parent =', index_parent
+			index_parent = ((index_elem-2 if not index_elem%2 \
+											else index_elem)//2) \
+							if index_elem>0 else 0
 			parent = self.queue[index_parent]
-			#print '\tparent =', parent
-			#print '\telem =', elem
 			if parent > elem :
 				self.swap(index_parent, index_elem)
 				index_elem = index_parent
@@ -49,15 +45,18 @@ class VariablePriorityQueue(object) :
 			else : # two child
 				child1 = self.queue[index_child1]
 				child2 = self.queue[index_child2]
-				index_child, child = (index_child1, child1) if child1 < child2 \
+				index_child, child = (index_child1, child1) \
+								if child1 < child2 \
 								else (index_child2, child2)
 			if child < elem :
 				self.swap(index_elem, index_child)
 				index_elem = index_child
 			else : break
 	def swap(self, index1, index2) :
-		self.queue[index1], self.queue[index2] = self.queue[index2], self.queue[index1]
-		self.position[self.queue[index1]], self.position[self.queue[index2]] = index1, index2
+		self.queue[index1], self.queue[index2] = \
+			self.queue[index2], self.queue[index1]
+		self.position[self.queue[index1]], \
+			self.position[self.queue[index2]] = index1, index2
 	def disp(self) :
 		print ' '.join(str(task.priority) for task in self.queue)
 	def exportPNG(self) :
@@ -76,7 +75,6 @@ class VariablePriorityQueue(object) :
 			dot_file.write('}\n')
 		system("dot -Tpng queue"+str(self.n_export)+".dot -o queue"+str(self.n_export)+".png")
 		self.n_export += 1
-		#print('Succesfully exported to PNG')
 
 class Task(object) :
 	num = 0

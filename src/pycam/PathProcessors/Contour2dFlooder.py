@@ -126,8 +126,8 @@ class Contour2dFlooder(BasePathProcessor) :
         return inside
 
     def flood(self, box, pocket) :
-        # see http://en.wikipedia.org/wiki/Flood_fill#Alternative_implementations
-        # implementation of the algorithme of flood-fill
+        # see en.wikipedia.org/wiki/Flood_fill
+        # alternative implementation of the algorithm
         # using a stack and 2 loops (east and west)
         if not box.free : return
         stack = []
@@ -139,12 +139,12 @@ class Contour2dFlooder(BasePathProcessor) :
                 while True :
                     if west.y == 0 : break
                     _west = west.get_neighbour(0, -1, 0)
-                    if (not _west.free) or _west.scan : break # TODO: remove test "scan" -> speed ? prcision ?
+                    if (not _west.free) or _west.scan : break
                     else : west = _west
                 while True :
                     if east.y == self.maxy : break
                     _east = east.get_neighbour(0, 1, 0)
-                    if (not _east.free) or _east.scan : break # TODO: idem
+                    if (not _east.free) or _east.scan : break
                     else : east = _east
                 for y in range(west.y, east.y+1) :
                     b = box.get_box(center.x, y, center.z)

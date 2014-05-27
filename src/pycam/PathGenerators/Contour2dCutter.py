@@ -9,9 +9,7 @@ from pycam.Geometry.Line import Line
 from pycam.Geometry.utils import INFINITE, epsilon, ceil, sqrt
 def _is_near(x, y):
     return abs(x - y) < epsilon
-import heapq # for Dijkstra's algorithm optimisation (using priority queue)
-
-import traceback # TODO: remove
+import heapq # for Dijkstra's algorithm optimisation (using priority queue)
 
 from pycam.Utils import ProgressCounter
 import pycam.Utils.log
@@ -94,7 +92,7 @@ class SquareBox(Box) :
 class HexaBox(Box) :
     def get_center(self) :
         return Point(self.x*Box.grid.apo2 + Box.grid.minx \
-                    + (Box.grid.apo if self.y % 2 else 0), # décalage pair-impair \
+                    + (Box.grid.apo if self.y % 2 else 0), \ # décalage pair-impair
                     Box.grid.rad05 + self.y*Box.grid.rad15 + Box.grid.miny, \
                     self.z*Box.grid.height + Box.grid.minz)
     @staticmethod
@@ -316,7 +314,7 @@ class SquareGrid(Grid) :
             # alors on va discrétiser toutes les cases traversées
             # d'abord les intersections verticales
             ordx = 1
-            if c1.x > c2.x : c1, c2 = c2, c1 # pour itérer dans le bon sens
+            if c1.x > c2.x : c1, c2 = c2, c1 # pour itérer dans le bon sens
             for x in self.rangex[c1.x+1:c2.x] :
                 # pour cela on calcule l'intersection de la ligne avec la grille des X
                 sec, d = ligne.get_intersection(Line(Point(x, self.miny, ligne.p1.z), \
