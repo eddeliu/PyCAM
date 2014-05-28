@@ -20,6 +20,7 @@ class Graph(object) :
     #we use it both for min spanning tree and min perfect matching
     #we need a cf function such that f(C1 U C2) = cf(f(C1),f(C2)) #see paper for what is f
     def goemans(self, cf) :
+        F = [] #holding solution
         class QueueElement(object) :
             def __init__(self, i, j, priority) :
                 self.i = i
@@ -33,7 +34,7 @@ class Graph(object) :
             def __lt__(self, other) :
                 return self.priority < other.priority
         #declare edges priority queue and initialize it
-        queue = VariablePriorityQueue()
+        queue = variablepriorityqueue.VariablePriorityQueue()
         for line in xrange(self.size) :
             for column in xrange(self.size) :
                 weight = self.matrix.item(line, column)
@@ -41,7 +42,7 @@ class Graph(object) :
                 queue.add(edge)
        
         #define union find structure and initialize it
-        C = DisjointSet()
+        C = disjointset.DisjointSet()
         f = [] #also store the values of f function (access it only through nodes representatives)
         d = [] #store nodes weights
         for vertex in range (self.size) :
@@ -59,11 +60,11 @@ class Graph(object) :
             sum_f = f[C.find(i)] + f[C.find(j)]
             if sum_f == 0 :
                 return float('+inf')
-        	return (self.matrix[i][j] -d[i] -d[j])/(sum_f)
+            return (self.matrix.item(i,j) -d[i] -d[j])/(sum_f)
         
         #we also need a matrix that holds the best edge between two trees
         #can only be accessed through nodes representatives
-        best_edges = numpy.zeros(shape=(self.size,self.size))
+        best_edges = numpy.zeros(shape=(self.size,self.size), dtype=numpy.int)
         for line in xrange(self.size) :
         	for column in xrange(self.size) :
         		if line != column :
@@ -83,9 +84,9 @@ class Graph(object) :
                 continue #skip edges which we do not update because not best ones
             #add it to solution
             F.append([best_edge.i, best_edge.j])
-            e = epsilon(best_edge, d, f)
+            e = epsilon(best_edge.i, best_edge.j, d, f)
             #update d
-            old_v = list(v) #backup because we will need the old info at the end
+            old_d = list(d) #backup because we will need the old info at the end
             for v in range(self.size) :
                 d[v] += e * f[C.find(v)]
             #update lower bound
@@ -114,21 +115,21 @@ class Graph(object) :
                 coded_edge2 = best_edges[r_j][column]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
                 edge2 = [coded_edge2 // self.size, coded_edge2 % self.size]
-                e1 = epsilon(*edge1, d, f)
-                e2 = epsilon(*edge2, d, f)
+                e1 = epsilon(edge1[0], edge1[1], d, f)
+                e2 = epsilon(edge2[0], edge2[1], d, f)
                 if e1 < e2 :
                     best_edges[r_union][column] = coded_edge1
                 else :
                     best_edges[r_union][column] = coded_edge2
 
-             #continue with column
-             for line in range(self.size) :
+            #continue with column
+            for line in range(self.size) :
                 coded_edge1 = best_edges[line][r_i]
                 coded_edge2 = best_edges[line][r_j]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
                 edge2 = [coded_edge2 // self.size, coded_edge2 % self.size]
-                e1 = epsilon(*edge1, d, f)
-                e2 = epsilon(*edge2, d, f)
+                e1 = epsilon(edge1[0], edge1[1], d, f)
+                e2 = epsilon(edge2[0], edge2[1], d, f)
                 if e1 < e2 :
                     best_edges[line][r_union] = coded_edge1
                 else :
@@ -143,8 +144,8 @@ class Graph(object) :
                 coded_edge = best_edges[r_union][column]
                 edge = [coded_edge // self.size, coded_edge % self.size]
                 #compute by how much the corresponding epsilon will change
-                old_e = epsilon(*edge, old_d, old_f)
-                new_e = epsilon(*edge, d, f)
+                old_e = epsilon(edge[0], edge[1], old_d, old_f)
+                new_e = epsilon(edge[0], edge[1], d, f)
                 #normaly we should have a new priority of new_e
                 #but we do not store epsilons as priorities
                 #the reason is that at each step d increases for many edges
@@ -158,3 +159,17 @@ class Graph(object) :
                 priority_delta = new_e - old_e + e 
                 changing_edge = QueueElement(r_union,column,priority_delta)
                 queue.update(changing_edge)
+        return F
+    #print dot file
+    def display_selected_edges(self, edges) :
+        h = {}
+        for edge in edges :
+            h[edge[0]*self.size+edge[1]] = 1
+        print "graph {"
+        for line in range(self.size) :
+            for column in range(self.size) :
+                if line*self.size+column in h :
+                    print "%s -- %s [label=%s, color=red];" % (line, column, self.matrice[line][column])
+                else :
+                    print "%s -- %s [label=%s];" % (line, column, self.matrice[line][column])
+        print "}"
