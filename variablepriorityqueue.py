@@ -8,21 +8,22 @@ class VariablePriorityQueue(object) :
 		for elem in l :
 			self.add(elem)
 	def add(self, elem) :
-		self.position[elem] = len(self.queue)
+        position = len(self.queue)
+		self.position[elem] = position
 		self.queue.append(elem)
-		self.up(elem)
+		self.up(position)
 	def get(self) :
 		self.swap(0, len(self.queue)-1)
 		elem = self.queue.pop()
 		if len(self.queue) :
-			self.down(self.queue[0])
+			self.down(0)
 		return elem
-	def update(self, elem, value) :
-		elem.priority += value # TODO : interface ?
-		if value > 0 : self.down(elem)
-		elif value < 0 : self.up(elem)
-	def up(self, elem) :
-		index_elem = self.position[elem]
+	def update(self, elem) :
+        position = self.position[elem]
+		self.queue[position].priority += elem.priority
+		if elem.priority > 0 : self.down(position)
+		elif elem.priority < 0 : self.up(position)
+	def up(self, index_elem) :
 		while True :
 			index_parent = ((index_elem-2 if not index_elem%2 \
 											else index_elem)//2) \
@@ -32,9 +33,8 @@ class VariablePriorityQueue(object) :
 				self.swap(index_parent, index_elem)
 				index_elem = index_parent
 			else : break
-	def down(self, elem) :
+	def down(self, index_elem) :
 		length = len(self.queue)-1
-		index_elem = self.position[elem]
 		while True :
 			index_child1 = index_elem*2+1
 			index_child2 = index_child1+1

@@ -16,6 +16,9 @@ class DisjointSet(object) :
     def select(self, value) :
         rep = self.find(value)
         return filter(lambda val : self.find(val) == rep, self.values)
+    #return all representatives (one per distinct set)
+    def get_representatives(self) :
+        return filter(lambda val : self.find(val) == val, self.values)
     def card(self, value) :
         return len(self.select(value))
     def disp(self) :
