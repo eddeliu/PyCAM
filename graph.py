@@ -48,7 +48,7 @@ class Graph(object) :
         LB = 0
 
         #main loop
-        while number_of_f1_trees :
+        while number_of_f1_trees - 1 :
             #take best edge between two different trees
             best_edge = queue.get()
             if C.find(best_edge.i) == C.find(best_edge.j) :
