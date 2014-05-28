@@ -164,7 +164,7 @@ class HexaBox(Box) :
     def know_your_pocket_neighbourhood(self) :
         # base algorithm : Dijkstra
         # modifications :
-        #  - iteration using flood
+        #  - iteration using flood and queue (heap)
         #  - all distances are 1
         pop = heapq.heappop
         push = heapq.heappush
@@ -418,8 +418,8 @@ class Contour2dCutter(object) :
             else:
                 a = (y2-y1)/(x2-x1)
                 return "y=%sx+%s" % (a, y2-a*x2)
-        Line.__hash__ = lambda self : hash(' '.join(
-                [equation2D(self.p1.x, self.p1.y, self.p2.x, self.p2.y), \
+        Line.__hash__ = lambda self : hash(' '.join([
+                equation2D(self.p1.x, self.p1.y, self.p2.x, self.p2.y), \
                 equation2D(self.p1.x, self.p1.z, self.p2.x, self.p2.z), \
                 equation2D(self.p1.y, self.p1.z, self.p2.y, self.p2.z)]))
         Line.__eq__ = lambda self, other : hash(self) == hash(other)

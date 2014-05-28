@@ -11,13 +11,13 @@ class DisjointSet(object) :
             self.representatives[self.find(value)]
     def find(self, value) :
         if value != self.representatives[value] :
-            self.representatives[value] = self.find(self.representatives[value])
+            self.representatives[value] = \
+                self.find(self.representatives[value])
         return self.representatives[value]
     def select(self, value) :
         rep = self.find(value)
         return filter(lambda val : self.find(val) == rep, self.values)
-    #return all representatives (one per distinct set)
-    def get_representatives(self) :
+    def retrieve(self) :
         return filter(lambda val : self.find(val) == val, self.values)
     def card(self, value) :
         return len(self.select(value))
