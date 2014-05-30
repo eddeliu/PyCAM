@@ -17,8 +17,10 @@ class VariablePriorityQueue(object) :
         elem = self.queue.pop()
         if len(self.queue) :
             self.down(0)
+        del self.position[elem]
         return elem
     def update(self, elem) :
+        print elem
         position = self.position[elem]
         self.queue[position].priority += elem.priority
         if elem.priority > 0 : self.down(position)
@@ -43,7 +45,7 @@ class VariablePriorityQueue(object) :
             if index_child1 > length : # no child
                 return
             elif index_child2 > length : # only left child
-                index_child, child = index_child1, child1
+                index_child, child = index_child1, self.queue[index_child1]
             else : # two child
                 child1 = self.queue[index_child1]
                 child2 = self.queue[index_child2]
@@ -60,7 +62,8 @@ class VariablePriorityQueue(object) :
         self.position[self.queue[index1]], \
             self.position[self.queue[index2]] = index1, index2
     def disp(self) :
-        print ' '.join(str(task.priority) for task in self.queue)
+        print '\n'.join(str(task) for task in self.queue)
+        print self.position
     def exportPNG(self) :
         from os import system
         with open('queue'+str(self.n_export)+'.dot', 'w') as dot_file :
@@ -77,3 +80,9 @@ class VariablePriorityQueue(object) :
             dot_file.write('}\n')
         system("dot -Tpng queue"+str(self.n_export)+".dot -o queue"+str(self.n_export)+".png")
         self.n_export += 1
+
+if __name__ == "__main__" :
+    queue = VariablePriorityQueue()
+    queue.make([5,9,10,5,6,7,5,9,6,4,1,3,4,8,6,4,6,45,14])# [1, 4, 3, 4, 5, 4, 5, 5, 6, 9, 6, 7, 10, 8, 6, 9, 6, 45, 14]
+    #queue.make([8,12,9,7,22,3,26,14,11,15,22]) # [3, 7, 8, 11, 15, 9, 26, 14, 12, 22, 22]
+    queue.disp()
