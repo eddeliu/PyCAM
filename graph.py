@@ -201,13 +201,13 @@ class Graph(object) :
                     vertices_left = [vertex]
                     card = 0
                     while vertices_left :
-                        vertice = vertices_left.pop()
-                        if vertice not in seen :
-                            seen[vertice] = current_component
+                        v = vertices_left.pop()
+                        if v not in seen :
+                            seen[v] = current_component
                             card += 1
-                            for edge in edges_by_vertex[vertice] :
+                            for edge in edges_by_vertex[v] :
                                 if edge != removed_edge :
-                                    vertices_left.append(edge[0] if edge[1] == vertice else edge[1])
+                                    vertices_left.append(edge[0] if edge[1] == v else edge[1])
                     if card%2 == 0 : even_sized += 1
                     current_component += 1
             return even_sized
@@ -216,11 +216,10 @@ class Graph(object) :
         #and see on remaining graph if there exist
         #any connected component of odd size
         #if yes, keep this edge else delete it
-        left_edges = list(F)
         current_edge_index = 0
         previous_number = even_sized_connected_component_number(edges_by_vertex, None)
-        while current_edge_index < len(left_edges):
-            edge = left_edges[current_edge_index]
+        while current_edge_index < len(F):
+            edge = F[current_edge_index]
             new_number = even_sized_connected_component_number(edges_by_vertex, edge)
             if (new_number is None) or (new_number <= previous_number) :
                 current_edge_index += 1
@@ -228,7 +227,7 @@ class Graph(object) :
                 print "Useless :", edge
                 for vertex in edge :
                     edges_by_vertex[vertex].remove(edge)
-                left_edges.remove(edge)
+                F.remove(edge)
                 previous_number = new_number
 
         # and still one iteration for creating shortcuts
