@@ -65,17 +65,17 @@ class Graph(object) :
         def epsilon(i, j, d, f) :
             sum_f = f[C.find(i)] + f[C.find(j)]
             if sum_f == 0 :
-               sum_f = 0.000001
+               sum_f = 0.00001 # one divided by one hundred thousand
             return (self.matrix.item(i,j) -d[i] -d[j])/(sum_f)
         
         #we also need a matrix that holds the best edge between two trees
         #can only be accessed through nodes representatives
         best_edges = numpy.zeros(shape=(self.size,self.size), dtype=numpy.int)
         for line in xrange(self.size) :
-        	for column in xrange(self.size) :
-        		if line != column :
+            for column in xrange(self.size) :
+                if line != column :
                     #we encode the edge to be able to store it in an integer
-        			best_edges[line][column] = line*self.size + column
+                    best_edges[line][column] = line*self.size + column
 
         #initialize lower bound
         LB = 0
@@ -157,10 +157,7 @@ class Graph(object) :
                 edge2 = [coded_edge2 // self.size, coded_edge2 % self.size]
                 e1 = epsilon(edge1[0], edge1[1], d, f)
                 e2 = epsilon(edge2[0], edge2[1], d, f)
-                if e1 < e2 :
-                    best_edges[line][r_union] = coded_edge1
-                else :
-                    best_edges[line][r_union] = coded_edge2
+                best_edges[line][r_union] = coded_edge1 if e1 < e2 else coded_edge2
 
             #final step : modify priority queue
             #loop on all best edges leaving r_union tree
@@ -175,18 +172,45 @@ class Graph(object) :
                     changing_edge = QueueElement(r_union,column,priority)
                     queue.update(changing_edge)
         return F
+
     def solve_spanning_tree(self) :
         return self.goemans(lambda f1,f2 : 1)
+
     def solve_perfect_matching(self) :
         F = self.goemans(lambda f1,f2 : (f1+f2)%2)
 
-        #returns true if there exist any connected component
-        #containing an odd number of vertices
-        def odd_size_connected_component(edges):
+        # create 
+        edges_by_vertex = {}
+        for edge in F :
+            for vertex in edge :
+                if vertex not in edges_by_vertex :
+                    edges_by_vertex[vertex] = [edge]
+                else : edges_by_vertex[vertex].append(edge)
+        print edges_by_vertex
+        #returns from a graph the number of components
+        #containing an even number of vertices
+        def even_sized_connected_component_number(edges_by_vertex, removed_edge):
+            if (removed_edge != None) and (edges_by_vertex[removed_edge[0]] == 1 \
+                                        or edges_by_vertex[removed_edge[1]] == 1) :
+                return None
             seen = {}
-            cardinality = {}
+            even_sized = 0
             current_component = 1
-            
+            for vertex in edges_by_vertex.keys() :
+                if vertex not in seen :
+                    vertices_left = [vertex]
+                    card = 0
+                    while vertices_left :
+                        vertice = vertices_left.pop()
+                        if vertice not in seen :
+                            seen[vertice] = current_component
+                            card += 1
+                            for edge in edges_by_vertex[vertice] :
+                                if edge != removed_edge :
+                                    vertices_left.append(edge[0] if edge[1] == vertice else edge[1])
+                    if card%2 == 0 : even_sized += 1
+                    current_component += 1
+            return even_sized
         #now try to remove one by one each edge
         #for each edge we simply remove it
         #and see on remaining graph if there exist
@@ -194,27 +218,36 @@ class Graph(object) :
         #if yes, keep this edge else delete it
         left_edges = list(F)
         current_edge_index = 0
+        previous_number = even_sized_connected_component_number(edges_by_vertex, None)
         while current_edge_index < len(left_edges):
-            selected_edges = left_edges[:current_edge_index] + left_edges[current_edge_index+1:]
-            if not odd_size_connected_component(selected_edges):
-                left_edges = left_edges[:current_edge_index] + left_edges[current_edge_index+1:]
-            else:
+            edge = left_edges[current_edge_index]
+            new_number = even_sized_connected_component_number(edges_by_vertex, edge)
+            if (new_number is None) or (new_number <= previous_number) :
                 current_edge_index += 1
-        
+            else:
+                print "Useless :", edge
+                for vertex in edge :
+                    edges_by_vertex[vertex].remove(edge)
+                left_edges.remove(edge)
+                previous_number = new_number
+
         # and still one iteration for creating shortcuts
         for vertex in edges_by_vertex.keys() :
             while len(edges_by_vertex[vertex]) >= 3 :
-                edge1 = edges_by_vertex[vertex][0]
-                edge2 = edges_by_vertex[vertex][1]
+                edge1 = edges_by_vertex[vertex][-1]
+                edge2 = edges_by_vertex[vertex][-2]
                 if edge1[0] == edge2[0] : shortcut = [edge1[1], edge2[1]]
                 elif edge1[0] == edge2[1] : shortcut = [edge1[1], edge2[0]]
                 elif edge1[1] == edge2[0] : shortcut = [edge1[0], edge2[1]]
                 elif edge1[1] == edge2[1] : shortcut = [edge1[0], edge2[0]]
                 print "Shortcut :", shortcut, edge1, edge2
+                edges_by_vertex[vertex].pop()
+                edges_by_vertex[vertex].pop()
                 F.append(shortcut)
                 F.remove(edge1)
                 F.remove(edge2)
         return F
+
     #print dot file
     def display_selected_edges(self, edges, name="goemans") :
         with open(name+".dot", 'w') as edges_file :
