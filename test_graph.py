@@ -3,6 +3,8 @@ import graph
 
 g = graph.Graph()
 g.read_file('6.txt')
-#edges = g.goemans(lambda f1,f2 : 1) # spanning tree
-edges = g.goemans(lambda f1,f2 : (f1+f2)%2) # perfect matching
-g.display_selected_edges(edges)
+edges = g.solve_spanning_tree()
+g.display_selected_edges(edges, "spanning")
+print (("*"*60)+"\n")*15
+edges = g.solve_perfect_matching()
+g.display_selected_edges(edges, "matching")

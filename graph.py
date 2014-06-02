@@ -46,12 +46,12 @@ class Graph(object) :
                     weight = self.matrix.item(line, column)
                     edge = QueueElement(line,column,weight/2)
                     queue.add(edge)
-        queue.disp()
+        #queue.disp()
         #define union find structure and initialize it
         C = disjointset.DisjointSet()
         f = [] #also store the values of f function (access it only through nodes representatives)
         d = [] #store nodes weights
-        for vertex in range (self.size) :
+        for vertex in xrange(self.size) :
             C.add(vertex)
             f.append(1)
             d.append(0)
@@ -80,6 +80,16 @@ class Graph(object) :
         #initialize lower bound
         LB = 0
 
+        #initialize time
+        #in priority queue the real priority we want
+        #is epsilon(i,j)
+        #however, it is too costly to store since any event
+        #would require modifying all priorities
+        #we instead use a global time T
+        #and define priorities as epsilon(i,j) + T
+        #see paper for more details
+        T = 0
+
         #main loop
         while number_of_f1_trees > 1 :
             #take best edge
@@ -94,30 +104,27 @@ class Graph(object) :
             #add it to solution
             F.append([best_edge.i, best_edge.j])
             e = epsilon(best_edge.i, best_edge.j, d, f)
-            print "Epsilon computed :", e
+            #update time
+            T += e
+            #print "Epsilon computed :", e
             #update d
-            old_d = list(d) #backup because we will need the old info at the end
-            print "Adding weight"
-            for v in range(self.size) :
+            for v in xrange(self.size) :
                 d[v] += e * f[C.find(v)]
-            print "Weigths before : ", old_d
-            print "Weights after : ", d
+            #print "Weights after : ", d
             #update lower bound
             for r in C.retrieve() :
                 LB += e * f[r]
-            print "Lower Bound updated :", LB
+            #print "Lower Bound updated :", LB
             #now last and complex part of the algorithm, do the fusion and weights update
             #start by updating number of trees with f=1
             r_i = C.find(best_edge.i)
             r_j = C.find(best_edge.j)
             v_i = f[r_i]
             v_j = f[r_j]
-            print "Representative of i :", r_i
-            print "Value :", v_i
-            print "Representative of j :", r_j
-            print "Value :", v_j
+
             new_f_value = cf(v_i, v_j)
-            print "Composition :", new_f_value
+
+            #compute new amount of trees with f value equel to 1
             if v_i + v_j > new_f_value :
                 number_of_f1_trees -= 2 - cf(1, 1) #one or two less
                 print "f1 trees less :", 2-cf(1,1)
@@ -125,13 +132,12 @@ class Graph(object) :
             C.union(r_i, r_j)
             #update f
             r_union = C.find(r_i)
-            print "Representative of ij :", r_union
-            old_f = list(f) #backup because we will need the old info at the end
+
             f[r_union] = new_f_value
-            print "Trees :", f
+
             #modify best edges going out of r_union tree
             #start with line
-            for column in range(self.size) :
+            for column in xrange(self.size) :
                 coded_edge1 = best_edges[r_i][column]
                 coded_edge2 = best_edges[r_j][column]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
@@ -144,7 +150,7 @@ class Graph(object) :
                     best_edges[r_union][column] = coded_edge2
 
             #continue with column
-            for line in range(self.size) :
+            for line in xrange(self.size) :
                 coded_edge1 = best_edges[line][r_i]
                 coded_edge2 = best_edges[line][r_j]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
@@ -161,55 +167,66 @@ class Graph(object) :
             #all edges leaving r_union tree which are not best
             #are therefore NOT UPDATED and will have ERRONEOUS priorities
             #this is why we filter edges at beginning of the loop to keep only best ones
-            print r_i, r_j
-            for column in range(self.size) :
+            for column in xrange(self.size) :
                 if (column != r_i) and (column != r_j) and C.find(column) != r_union :
                     coded_edge = best_edges[r_union][column]
                     edge = [coded_edge // self.size, coded_edge % self.size]
-                    #compute by how much the corresponding epsilon will change
-                    old_e = epsilon(edge[0], edge[1], old_d, old_f)
-                    new_e = epsilon(edge[0], edge[1], d, f)
-                    #normaly we should have a new priority of new_e
-                    #but we do not store epsilons as priorities
-                    #the reason is that at each step d increases for many edges
-                    #so all 'interesting' edges not concerned by the fusion
-                    #should see their epsilon decrease by e
-                    #we do not want to update so many priorities but still
-                    #want the right edges order
-                    #so instead we add e to everyone's priority
-                    #this way, we do not need to update all edges with a priority change
-                    # of exactly -e
-                    priority_delta = new_e - old_e + e 
-                    changing_edge = QueueElement(r_union,column,priority_delta)
+                    priority = epsilon(r_union, column, d, f) + T
+                    changing_edge = QueueElement(r_union,column,priority)
                     queue.update(changing_edge)
         return F
-    def solve_spanning_tree(cf) :
-        return self.goemans(cf)
-    def solve_perfect_matching(cf) :
-        F = self.goemans(cf)
-        # now we must remove any edge that's not needed
-        edges_by_vertices = {}
-        for edge in F :
-            if edge[0] not in edges_by_vertices :
-                edges_by_vertices[edge[0]] = [edge]
-            else :
-                edges_by_vertices[edge[0]].append(edge)
-            if edge[1] not in edges_by_vertices :
-                edges_by_vertices[edge[1]] = [edge]
-            else :
-                edges_by_vertices[edge[1]].append(edge)
+    def solve_spanning_tree(self) :
+        return self.goemans(lambda f1,f2 : 1)
+    def solve_perfect_matching(self) :
+        F = self.goemans(lambda f1,f2 : (f1+f2)%2)
+
+        #returns true if there exist any connected component
+        #containing an odd number of vertices
+        def odd_size_connected_component(edges):
+            seen = {}
+            cardinality = {}
+            current_component = 1
+            
+        #now try to remove one by one each edge
+        #for each edge we simply remove it
+        #and see on remaining graph if there exist
+        #any connected component of odd size
+        #if yes, keep this edge else delete it
+        left_edges = list(F)
+        current_edge_index = 0
+        while current_edge_index < len(left_edges):
+            selected_edges = left_edges[:current_edge_index] + left_edges[current_edge_index+1:]
+            if not odd_size_connected_component(selected_edges):
+                left_edges = left_edges[:current_edge_index] + left_edges[current_edge_index+1:]
+            else:
+                current_edge_index += 1
+        
+        # and still one iteration for creating shortcuts
+        for vertex in edges_by_vertex.keys() :
+            while len(edges_by_vertex[vertex]) >= 3 :
+                edge1 = edges_by_vertex[vertex][0]
+                edge2 = edges_by_vertex[vertex][1]
+                if edge1[0] == edge2[0] : shortcut = [edge1[1], edge2[1]]
+                elif edge1[0] == edge2[1] : shortcut = [edge1[1], edge2[0]]
+                elif edge1[1] == edge2[0] : shortcut = [edge1[0], edge2[1]]
+                elif edge1[1] == edge2[1] : shortcut = [edge1[0], edge2[0]]
+                print "Shortcut :", shortcut, edge1, edge2
+                F.append(shortcut)
+                F.remove(edge1)
+                F.remove(edge2)
+        return F
     #print dot file
-    def display_selected_edges(self, edges, name="goemans.dot") :
-        with open(name, 'w') as edges_file :
+    def display_selected_edges(self, edges, name="goemans") :
+        with open(name+".dot", 'w') as edges_file :
             h = {}
             for edge in edges :
                 h[edge[0]*self.size+edge[1]] = 1
             edges_file.write("graph {\n")
-            for line in range(self.size) :
-                for column in range(line, self.size) :
+            for line in xrange(self.size) :
+                for column in xrange(self.size) :
                     if line != column :
                         if line*self.size+column in h :
                             edges_file.write("\t%s -- %s [label=%s, color=red];\n" % (line, column, self.matrix[line][column]))
-                        else :
+                        elif column > line :
                             edges_file.write("\t%s -- %s [label=%s];\n" % (line, column, self.matrix[line][column]))
             edges_file.write("}\n")

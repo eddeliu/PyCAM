@@ -22,9 +22,10 @@ class VariablePriorityQueue(object) :
     def update(self, elem) :
         print elem
         position = self.position[elem]
-        self.queue[position].priority += elem.priority
-        if elem.priority > 0 : self.down(position)
-        elif elem.priority < 0 : self.up(position)
+        priority_delta = elem.priority - self.queue[position].priority
+        self.queue[position].priority = elem.priority
+        if priority_delta > 0 : self.down(position)
+        elif priority_delta < 0 : self.up(position)
     def up(self, index_elem) :
         elem = self.queue[index_elem]
         while True :
