@@ -251,15 +251,19 @@ class Graph(object) :
     #print dot file
     def display_selected_edges(self, edges, name="goemans") :
         with open(name+".dot", 'w') as edges_file :
-            h = {}
-            for edge in edges :
-                h[edge[0]*self.size+edge[1]] = 1
-            edges_file.write("graph {\n")
-            for line in xrange(self.size) :
-                for column in xrange(self.size) :
-                    if line != column :
-                        if line*self.size+column in h :
-                            edges_file.write("\t%s -- %s [label=%s, color=red];\n" % (line, column, self.matrix[line][column]))
-                        elif column > line :
-                            edges_file.write("\t%s -- %s [label=%s];\n" % (line, column, self.matrix[line][column]))
-            edges_file.write("}\n")
+            with open(name+"_sol.dot", 'w') as sol_file :
+                h = {}
+                for edge in edges :
+                    h[edge[0]*self.size+edge[1]] = 1
+                edges_file.write("graph {\n")
+                sol_file.write("graph {\n")
+                for line in xrange(self.size) :
+                    for column in xrange(self.size) :
+                        if line != column :
+                            if line*self.size+column in h :
+                                edges_file.write("\t%s -- %s [label=%s, color=red];\n" % (line, column, self.matrix[line][column]))
+                                sol_file.write("\t%s -- %s;\n" % (line, column))
+                            elif column > line :
+                                edges_file.write("\t%s -- %s [label=%s];\n" % (line, column, self.matrix[line][column]))
+                edges_file.write("}\n")
+                sol_file.write("}\n")
