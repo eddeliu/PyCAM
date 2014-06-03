@@ -92,7 +92,7 @@ class SquareBox(Box) :
 class HexaBox(Box) :
     def get_center(self) :
         return Point(self.x*Box.grid.apo2 + Box.grid.minx \
-                    + (Box.grid.apo if self.y % 2 else 0), \ # décalage pair-impair
+                    + (Box.grid.apo if self.y % 2 else 0), # décalage pair-impair \
                     Box.grid.rad05 + self.y*Box.grid.rad15 + Box.grid.miny, \
                     self.z*Box.grid.height + Box.grid.minz)
     @staticmethod
