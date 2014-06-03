@@ -16,7 +16,7 @@ class Graph(object) :
             self.matrix[current_line_number] = floats
             current_line_number += 1
 
-    def christofides(self, starting_index) :
+    def christofides(self) :
         spanning_tree = self.solve_spanning_tree(range(self.size))
         self.display_selected_edges(spanning_tree, "spanning")
         edges_by_vertex = {}
@@ -44,7 +44,7 @@ class Graph(object) :
                 if end == starting_from : break
                 else : start = end
             return path
-        eulerian_path = find_path(starting_index)
+        eulerian_path = find_path(edges_by_vertex.keys()[0])
         edges_left = len(spanning_tree) + len(perfect_matching) - len(eulerian_path)
         while edges_left :
             for edge in eulerian_path :
