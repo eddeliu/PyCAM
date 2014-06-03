@@ -4,6 +4,7 @@ import disjointset
 
 
 class Graph(object) :
+
     def read_file(self, filename) :
         matrix_file = open(filename, 'r')
         self.size = int(matrix_file.readline().rstrip())
@@ -14,12 +15,34 @@ class Graph(object) :
             floats = map(float, strings)
             self.matrix[current_line_number] = floats
             current_line_number += 1
-    def display(self) :
-        print self.matrix
+
+    def christofides(self) :
+        spanning_tree = self.solve_spanning_tree(range(self.size))
+        self.display_selected_edges(spanning_tree, "spanning")
+        print (("*"*60)+"\n")*15
+        edges_by_vertex = {}
+        for edge in spanning_tree :
+            for vertex in edge :
+                if vertex not in edges_by_vertex :
+                    edges_by_vertex[vertex] = [edge]
+                else : edges_by_vertex[vertex].append(edge)
+        odd_degree_vertexes = filter(lambda v : len(edges_by_vertex[v])%2, edges_by_vertex.keys())
+        perfect_matching = self.solve_perfect_matching(odd_degree_vertexes)
+        self.display_selected_edges(perfect_matching, "matching")
+        for edge in perfect_matching :
+            for vertex in edge :
+                edges_by_vertex[vertex].append(edge)
+        eulerian_path = []
+        
+
     #see 'a general approximation technique for constrained forest problems' by goemans et williamson
     #we use it both for min spanning tree and min perfect matching
     #we need a cf function such that f(C1 U C2) = cf(f(C1),f(C2)) #see paper for what is f
-    def goemans(self, cf) :
+    # we also need the vertexes that the algorithm should work with, these are indexes in self.matrix as well
+    # because goemans is applied first to find spanning tree of the initial graph, then
+    # to find perfect matching amongst odd degree vertexes of the spanning tree # see Christofides
+    # both graphs are assumed to be complete (degree of each vertex equals number of vertexes minus one)
+    def goemans(self, cf, vertexes) :
         F = [] #holding solution
         class QueueElement(object) :
             def __init__(self, i, j, priority) :
@@ -40,8 +63,8 @@ class Graph(object) :
                 return "QueueElement(%s,%s, %s)" % (self.i, self.j, self.priority)
         #declare edges priority queue and initialize it
         queue = variablepriorityqueue.VariablePriorityQueue()
-        for line in xrange(self.size) :
-            for column in xrange(self.size) :
+        for line in vertexes :
+            for column in vertexes :
                 if line != column :
                     weight = self.matrix.item(line, column)
                     edge = QueueElement(line,column,weight/2)
@@ -49,17 +72,17 @@ class Graph(object) :
         #queue.disp()
         #define union find structure and initialize it
         C = disjointset.DisjointSet()
-        f = [] #also store the values of f function (access it only through nodes representatives)
-        d = [] #store nodes weights
-        for vertex in xrange(self.size) :
+        f = {} #also store the values of f function (access it only through nodes representatives)
+        d = {} #store nodes weights
+        for vertex in vertexes :
             C.add(vertex)
-            f.append(1)
-            d.append(0)
+            f[vertex] = 1
+            d[vertex] = 0
 
         #store the number of trees C_r such that f(C_r) = 1
         #we need this info to check quickly for then end of the computations
         #(when it reaches 1)
-        number_of_f1_trees = self.size
+        number_of_f1_trees = len(vertexes)
         
         #this is the function that computes priority of an edge
         def epsilon(i, j, d, f) :
@@ -71,8 +94,8 @@ class Graph(object) :
         #we also need a matrix that holds the best edge between two trees
         #can only be accessed through nodes representatives
         best_edges = numpy.zeros(shape=(self.size,self.size), dtype=numpy.int)
-        for line in xrange(self.size) :
-            for column in xrange(self.size) :
+        for line in vertexes :
+            for column in vertexes :
                 if line != column :
                     #we encode the edge to be able to store it in an integer
                     best_edges[line][column] = line*self.size + column
@@ -108,7 +131,7 @@ class Graph(object) :
             T += e
             #print "Epsilon computed :", e
             #update d
-            for v in xrange(self.size) :
+            for v in vertexes :
                 d[v] += e * f[C.find(v)]
             #print "Weights after : ", d
             #update lower bound
@@ -137,7 +160,7 @@ class Graph(object) :
 
             #modify best edges going out of r_union tree
             #start with line
-            for column in xrange(self.size) :
+            for column in vertexes :
                 coded_edge1 = best_edges[r_i][column]
                 coded_edge2 = best_edges[r_j][column]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
@@ -150,7 +173,7 @@ class Graph(object) :
                     best_edges[r_union][column] = coded_edge2
 
             #continue with column
-            for line in xrange(self.size) :
+            for line in vertexes :
                 coded_edge1 = best_edges[line][r_i]
                 coded_edge2 = best_edges[line][r_j]
                 edge1 = [coded_edge1 // self.size, coded_edge1 % self.size]
@@ -164,7 +187,7 @@ class Graph(object) :
             #all edges leaving r_union tree which are not best
             #are therefore NOT UPDATED and will have ERRONEOUS priorities
             #this is why we filter edges at beginning of the loop to keep only best ones
-            for column in xrange(self.size) :
+            for column in vertexes :
                 if (column != r_i) and (column != r_j) and C.find(column) != r_union :
                     coded_edge = best_edges[r_union][column]
                     edge = [coded_edge // self.size, coded_edge % self.size]
@@ -173,11 +196,11 @@ class Graph(object) :
                     queue.update(changing_edge)
         return F
 
-    def solve_spanning_tree(self) :
-        return self.goemans(lambda f1,f2 : 1)
+    def solve_spanning_tree(self, vertexes) :
+        return self.goemans(lambda f1,f2 : 1, vertexes)
 
-    def solve_perfect_matching(self) :
-        F = self.goemans(lambda f1,f2 : (f1+f2)%2)
+    def solve_perfect_matching(self, vertexes) :
+        F = self.goemans(lambda f1,f2 : (f1+f2)%2, vertexes)
 
         # create 
         edges_by_vertex = {}
