@@ -20,7 +20,6 @@ class VariablePriorityQueue(object) :
         del self.position[elem]
         return elem
     def update(self, elem) :
-        print elem
         position = self.position[elem]
         priority_delta = elem.priority - self.queue[position].priority
         self.queue[position].priority = elem.priority

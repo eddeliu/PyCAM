@@ -4,4 +4,5 @@ from sys import argv
 
 g = graph.Graph()
 g.read_file(argv[1])
-g.christofides()
+hamiltonian_path = g.christofides(0)
+print hamiltonian_path
