@@ -26,7 +26,7 @@ class Box(object) :
         self.x = x
         self.y = y
         self.z = z
-        self.index = z*Box.grid.nb_boxes_per_layer + x*Box.grid.nb_columns + y
+        self.index = 0
         self._distance = 0 # used by Dijkstra's algorithm
         self.lines = []
         self.scan = False
@@ -443,11 +443,11 @@ class Contour2dCutter(object) :
             for line in to_project :
                 projection = planeInf.get_line_projection(line)
                 self.grid.discretise_line(projection)
-        self.grid.draw_contour_PBM()
+        #self.grid.draw_contour_PBM()
         self.pa.initialise(self.grid)
         self.pa.do_path()
-
-        return None
+        print self.pa.paths
+        return self.pa.paths
 
     @staticmethod
     def mergeRiddanceLines(lines) :

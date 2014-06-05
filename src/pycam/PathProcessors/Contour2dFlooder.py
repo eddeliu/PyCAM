@@ -5,6 +5,7 @@ stuff
 
 from pycam.PathProcessors import BasePathProcessor
 # use Grid and Box objects from Contour2dCutter
+import heapq # for Dijkstra's algorithm optimisation (using priority queue)
 
 
 class Pocket(object) :
@@ -13,27 +14,88 @@ class Pocket(object) :
     def __init__(self) :
         self.id = Pocket.id
         Pocket.id += 1
-        self.pocket_above = None
         self.boxes = []
+        self.pocket_above = None
         self.pockets_underneath = []
+        self.matrix_distance = None
+        self.matrix_predecessor = None
+        self.solved_path = None
 
     @property
     def bottom(self) : return not self.pockets_underneath
+
+    @property
+    def size(self) : return len(self.boxes)
 
     def __str__(self) :
         return("Pocket %s (%s / %s)\n" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
             ','.join(str(pocket.id) for pocket in self.pockets_underneath)) \
             + '\n\t'.join(str(box) for box in self.boxes))
 
-class DisjointSet(object) :
-    def find(self, value) :
-        if value != value._repr :
-            value._repr = self.find(value._repr)
-        return value._repr
-    def union(self, value, other_value) : # 2nd value's repr is 1st value one's
-        self.find(other_value)._repr = self.find(value)._repr
-    def add(self, value) :
-        value._repr = value
+    def compute_dijkstra(self) :
+        # build matrices to hold results
+        length = len(self.boxes)
+        matrix_distance = [[-1]*length for _ in xrange(length)]
+        matrix_predecessor = [[None]*length for _ in xrange(length)]
+
+        # assign to each box his index in matrices
+        i = 0
+        while i < len(self.boxes) :
+            self.boxes[i].index = i
+            i += 1
+
+        # some computation time optimizations
+        pop = heapq.heappop
+        push = heapq.heappush
+
+        for box in self.boxes :
+            # then here come Dijkstra :
+            box_index = box.index
+            matrix_distance[box_index][box_index] = 0
+            matrix_predecessor[box_index][box_index] = None
+            neighbours_left = [box] # heap
+            box._distance = 0
+            while neighbours_left :
+                nearest = pop(neighbours_left)
+                if matrix_distance[box_index][nearest.index] < 0 :
+                    new_distance = nearest._distance + 1
+                    for neighbour in nearest.free_neighbours :
+                        previous_distance = matrix_distance[box_index][neighbour.index]
+                        if previous_distance == 0 :
+                            neighbour._distance = new_distance
+                            matrix_distance[box_index][neighbour.index] = new_distance
+                            matrix_predecessor[box_index][neighbour.index] = nearest
+                            push(neighbours_left, neighbour)
+                        # else the path would be anyway equally long or longer
+                # else the box has already been processed
+
+        # finally save results
+        self.matrix_distance = matrix_distance
+        self.matrix_predecessor = matrix_predecessor
+
+    def solve_path(self) :
+        self.compute_dijkstra()
+        graph = SolvingGraph(self.matrix_distance)
+        index_path = graph.christofides()
+        box_path = [self.boxes[index[0]] for index in index_path] + index_path[-1][1]
+        real_path = []
+        i = 0
+        while i < len(box_path) :
+            current_box = box_path[i]
+            real_path.append(current_box)
+            next_box = box_path[(i+1)%len(box_path)]
+            partial_path = []
+            step_box = self.matrix_predecessor[current_box.index][next_box.index]
+            while step_box != current_box :
+                partial_path.insert(0, step_box)
+                step_box = self.matrix_predecessor[current_box.index][step_box.index]
+            real_path.extend(partial_path)
+        self.solved_path = real_path
+
+    def solve_path_from(self, box) :
+        self.solve_path()
+        cut = self.solved_path.index(box)
+        return self.solved_path[cut:] + self.solved_path[:cut]
 
 class Contour2dFlooder(BasePathProcessor) :
 
@@ -54,7 +116,34 @@ class Contour2dFlooder(BasePathProcessor) :
     def do_path(self) :
         for layer in xrange(self.maxz+1) :
             self.do_layer(self.maxz - layer)
-        self.draw_pocket_PBM()
+        #self.draw_pocket_PBM()
+        self.paths = self.find_path_from(self.grid.box.get_box(0, 0, 0)) # TODO: BUG
+
+    def find_path_from(self, start_box) :
+        start_pocket = start_box.pocket
+        pocket_path = start_pocket.solve_path_from(start_box)
+        if not start_pocket.underneath_pockets :
+            return pocket_path
+        else :
+            underneath_pockets = {}
+            encountered_boxes = {}
+            for underneath_pocket in start_pocket.underneath_pockets :
+                underneath_pockets[underneath_pocket] = underneath_pocket.size
+            path = []
+            for box in pocket_path :
+                path.append(box)
+                if box not in encoutered_boxes :
+                    encountered_boxes[box] = 1
+                    underneath_box = box.get_neighbour(0, 0, -1)
+                    if underneath_box.free :
+                        underneath_pockets[underneath_box.pocket] -= 1
+                        if underneath_pockets[underneath_box.pocket] == 0 :
+                            path.extend(self.find_path_from(underneath_box + box))
+                            path.append(box)
+                        # else the pocket cennot be milled yet
+                    # else the cutter is not above pocket
+                # else the box has already been milled
+            return path
 
     def do_layer(self, layer) :
         self._layer = self.grid.layers[layer]

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import graph
+import solvinggraph
 from sys import argv
 
-g = graph.Graph()
+g = solvinggraph.SolvingGraph()
 g.read_file(argv[1])
 hamiltonian_path = g.christofides()
 print hamiltonian_path

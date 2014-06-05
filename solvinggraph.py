@@ -1,20 +1,13 @@
-import numpy
 import variablepriorityqueue
 import disjointset
 
 
-class Graph(object) :
+class SolvingGraph(object) :
 
-    def read_file(self, filename) :
-        matrix_file = open(filename, 'r')
-        self.size = int(matrix_file.readline().rstrip())
-        self.matrix = numpy.zeros(shape=(self.size,self.size))
-        current_line_number = 0
-        for line in matrix_file :
-            strings = line.rstrip().split(' ')
-            floats = map(float, strings)
-            self.matrix[current_line_number] = floats
-            current_line_number += 1
+    def __init__(self, matrix=None) :
+        if matrix != None :
+            self.size = len(matrix)
+            self.matrix = matrix
 
     def christofides(self) :
         spanning_tree = self.solve_spanning_tree(range(self.size))
@@ -96,7 +89,7 @@ class Graph(object) :
         for line in vertexes :
             for column in vertexes :
                 if line != column :
-                    weight = self.matrix.item(line, column)
+                    weight = self.matrix[line][column]
                     edge = QueueElement(line,column,weight/2)
                     queue.add(edge)
 
@@ -119,16 +112,14 @@ class Graph(object) :
             sum_f = f[C.find(i)] + f[C.find(j)]
             if sum_f == 0 :
                sum_f = 0.00001 # one divided by one hundred thousand
-            return (self.matrix.item(i,j) -d[i] -d[j])/(sum_f)
+            return (self.matrix[i][j] -d[i] -d[j])/(sum_f)
         
         #we also need a matrix that holds the best edge between two trees
         #can only be accessed through nodes representatives
-        best_edges = numpy.zeros(shape=(self.size,self.size), dtype=numpy.int)
-        for line in vertexes :
-            for column in vertexes :
-                if line != column :
-                    #we encode the edge to be able to store it in an integer
-                    best_edges[line][column] = line*self.size + column
+        #we encode the edge to be able to store it in an integer
+        best_edges = [[0 if line == column else line*self.size + column
+                        for column in xrange(self.size)]
+                        for line in xrange(self.size)]
 
         #initialize lower bound
         LB = 0
@@ -296,6 +287,15 @@ class Graph(object) :
                 F.remove(edge1)
                 F.remove(edge2)
         return F
+
+    def read_file(self, filename) :
+        matrix_file = open(filename, 'r')
+        self.size = int(matrix_file.readline().rstrip())
+        self.matrix = []
+        for line in matrix_file :
+            strings = line.rstrip().split(' ')
+            floats = map(float, strings)
+            self.matrix.append(floats)
 
     #print dot file
     def display_selected_edges(self, edges, name="goemans") :
