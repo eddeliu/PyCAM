@@ -6,7 +6,7 @@ stuff
 from pycam.PathProcessors import BasePathProcessor
 # use Grid and Box objects from Contour2dCutter
 import heapq # for Dijkstra's algorithm optimisation (using priority queue)
-
+from solvinggraph import SolvingGraph
 
 class Pocket(object) :
     id = 1
@@ -29,13 +29,13 @@ class Pocket(object) :
 
     def __str__(self) :
         return("Pocket %s (%s / %s)\n" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
-            ','.join(str(pocket.id) for pocket in self.pockets_underneath)) \
-            + '\n\t'.join(str(box) for box in self.boxes))
+            ','.join(str(pocket.id) for pocket in self.pockets_underneath)))# \
+            #+ '\n\t'.join(str(box) for box in self.boxes))
 
     def compute_dijkstra(self) :
         # build matrices to hold results
         length = len(self.boxes)
-        matrix_distance = [[-1]*length for _ in xrange(length)]
+        matrix_distance = [[0]*length for _ in xrange(length)]
         matrix_predecessor = [[None]*length for _ in xrange(length)]
 
         # assign to each box his index in matrices
@@ -51,23 +51,21 @@ class Pocket(object) :
         for box in self.boxes :
             # then here come Dijkstra :
             box_index = box.index
-            matrix_distance[box_index][box_index] = 0
-            matrix_predecessor[box_index][box_index] = None
-            neighbours_left = [box] # heap
+            matrix_distance[box_index][box_index] = -1
+            matrix_predecessor[box_index][box_index] = box
+            neighbours_left = [box] # is a heap
             box._distance = 0
             while neighbours_left :
                 nearest = pop(neighbours_left)
-                if matrix_distance[box_index][nearest.index] < 0 :
-                    new_distance = nearest._distance + 1
-                    for neighbour in nearest.free_neighbours :
-                        previous_distance = matrix_distance[box_index][neighbour.index]
-                        if previous_distance == 0 :
-                            neighbour._distance = new_distance
-                            matrix_distance[box_index][neighbour.index] = new_distance
-                            matrix_predecessor[box_index][neighbour.index] = nearest
-                            push(neighbours_left, neighbour)
-                        # else the path would be anyway equally long or longer
-                # else the box has already been processed
+                new_distance = nearest._distance + 1
+                for neighbour in nearest.free_neighbours :
+                    previous_distance = matrix_distance[box_index][neighbour.index]
+                    if previous_distance == 0 :
+                        neighbour._distance = new_distance
+                        matrix_distance[box_index][neighbour.index] = new_distance
+                        matrix_predecessor[box_index][neighbour.index] = nearest
+                        push(neighbours_left, neighbour)
+                    # else the path would be anyway equally long or longer
 
         # finally save results
         self.matrix_distance = matrix_distance
@@ -77,7 +75,7 @@ class Pocket(object) :
         self.compute_dijkstra()
         graph = SolvingGraph(self.matrix_distance)
         index_path = graph.christofides()
-        box_path = [self.boxes[index[0]] for index in index_path] + index_path[-1][1]
+        box_path = [self.boxes[index[0]] for index in index_path] + [index_path[0][0]]
         real_path = []
         i = 0
         while i < len(box_path) :
@@ -90,6 +88,7 @@ class Pocket(object) :
                 partial_path.insert(0, step_box)
                 step_box = self.matrix_predecessor[current_box.index][step_box.index]
             real_path.extend(partial_path)
+            i += 1
         self.solved_path = real_path
 
     def solve_path_from(self, box) :
@@ -117,9 +116,10 @@ class Contour2dFlooder(BasePathProcessor) :
         for layer in xrange(self.maxz+1) :
             self.do_layer(self.maxz - layer)
         #self.draw_pocket_PBM()
-        self.paths = self.find_path_from(self.grid.box.get_box(0, 0, 0)) # TODO: BUG
+        self.paths = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1)) # TODO: skypocket
 
     def find_path_from(self, start_box) :
+        print "find path from", start_box
         start_pocket = start_box.pocket
         pocket_path = start_pocket.solve_path_from(start_box)
         if not start_pocket.underneath_pockets :
@@ -249,10 +249,10 @@ class Contour2dFlooder(BasePathProcessor) :
     def link_pockets(self, pockets) :
         for pocket in pockets :
             if pocket.boxes[0].z != self.maxz :
-                pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, 1).pocket
+                pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, -1).pocket
                 self.link_pocket(pocket)
             else :
-                pocket.pocket_above = 0
+                pocket.pocket_above = None
                 self.link_pocket(pocket)
             #pocket.boxes[0].export_your_graph_of_shortest_paths()
 
@@ -260,8 +260,6 @@ class Contour2dFlooder(BasePathProcessor) :
         for box in pocket.boxes :
             box.pocket = pocket
             box.know_your_free_neighbours()
-        for box in pocket.boxes :
-            box.know_your_pocket_neighbourhood()
 
     def draw_pocket_PBM(self) :
         for nb_layer in xrange(self.grid.nb_layers) :

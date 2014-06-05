@@ -70,11 +70,11 @@ class Box(object) :
     def get_location(x, y, z) :
         raise NotImplementedError("Abstract @staticmethod Grid.get_location")
     def __str__(self) :
-        return("Box({x},{y}{z})".format(self))
+        return("Box(%s,%s,%s)" % (self.x, self.y, self.z))
     def __repr__(self) :
         return("Box(%r, %r, %r)" % (self.x, self.y, self.z, ))
     def sq(self) :
-        return("⬜" if self.libre else "⬛")
+        return("⬜" if self.free else "⬛")
     def viz(self) :
         return('"' + ' '.join((str(self.x), str(self.y), str(self.z))) + '"')
 
@@ -161,27 +161,6 @@ class HexaBox(Box) :
         if self.y != Box.grid.nb_columns-1 :
             neighbours.append(self.get_neighbour(0, 1, 0))
         self.free_neighbours = filter(lambda v : v.free, neighbours)
-    def know_your_pocket_neighbourhood(self) :
-        # base algorithm : Dijkstra
-        # modifications :
-        #  - iteration using flood and queue (heap)
-        #  - all distances are 1
-        pop = heapq.heappop
-        push = heapq.heappush
-        m = Box.grid.matrix
-        m[self.index][self.index] = (0, self)
-        neighbours_left = [self]
-        self._distance = 0
-        while neighbours_left :
-            nearest = pop(neighbours_left)
-            new_distance = nearest._distance + 1
-            for neighbour in nearest.free_neighbours :
-                previous_distance = m[self.index][neighbour.index][0]
-                if previous_distance is None :
-                    neighbour._distance = new_distance
-                    m[self.index][neighbour.index] = (new_distance, nearest)
-                    push(neighbours_left, neighbour)
-                # else the path would be anyway equally long or longer
     def export_your_graph_of_shortest_paths(self) :
         m = Box.grid.matrix
         this = self.viz()
@@ -221,36 +200,24 @@ class Grid(object) :
     def __init__(self, model, cutter) :
         self.model = model
         self.diameter = 2*cutter.radius
-        self.height = self.diameter # TODO
-        self.nb_layers = ceil( (model.maxz - model.minz) / self.height) # integer division TODO: +1 ? sky pocket
+        self.height = self.diameter # TODO: enfoncement
+        self.nb_layers = ceil( (model.maxz - model.minz) / self.height) +1 # TODO: +1 skypocket
         self.layers = []
-        self.heights = Grid.floatrange(model.minz, model.maxz, self.height, False)
+        #self.heights = Grid.floatrange(model.minz, model.maxz, self.height, False)
+        self.heights = [model.minz+i*self.height for i in range(self.nb_layers)]
         self.minx, self.miny, self.minz = model.minx, model.miny, model.minz
         self.maxx, self.maxy, self.maxz = model.maxx, model.maxy, model.maxz
         self.up_vector = Vector(0, 0, 1)
         self.Box = GridBox(self)
         self.do_pavement()
-        self.nb_boxes_per_layer = self.nb_lines*self.nb_columns
-        self.nb_boxes_total = self.nb_boxes_per_layer*self.nb_layers
-        self.matrix = []
-        print self.nb_boxes_total
-        print self.nb_boxes_total*self.nb_boxes_total
-        for i in range(self.nb_boxes_total) :
-            self.matrix.append([])
-            for j in range(self.nb_boxes_total) :
-                self.matrix[i].append([None, None])
-        print 'matrix created'
-        import sys
-        print sys.getsizeof(self.matrix)
     def do_pavement(self) :
         raise NotImplementedError("Abstract Grid.do_pavement")
     def iterate_on_layers(self) :
-        for height in self.heights :
-            z = self.heights.index(height) # TODO improvement
-            self.layers.append([[self.Box(x, y, z) \
+        for layer in xrange(self.nb_layers) :
+            self.layers.append([[self.Box(x, y, layer) \
                                 for y in range(self.nb_columns)] \
                                 for x in range(self.nb_lines)])
-            yield height
+            yield self.heights[layer]
     def get_box(self, line, column, layer) :
         try :
             return self.layers[layer][line][column]
@@ -265,7 +232,7 @@ class Grid(object) :
         index = self.heights.index(z)
         print("\nLayer %d/%d : " % (index+1, self.nb_layers))
         for column in range(self.nb_columns) :
-            print(' '.join(self.get_box(index, line, column).sq() \
+            print(' '.join(self.get_box(line, column, index).sq() \
                 for line in range(self.nb_lines)))
     def draw_contour_PBM(self) :
         for nb_layer in range(self.nb_layers) :
@@ -443,6 +410,7 @@ class Contour2dCutter(object) :
             for line in to_project :
                 projection = planeInf.get_line_projection(line)
                 self.grid.discretise_line(projection)
+            #self.grid.display_complete_layer(height)
         #self.grid.draw_contour_PBM()
         self.pa.initialise(self.grid)
         self.pa.do_path()

@@ -11,6 +11,7 @@ class SolvingGraph(object) :
 
     def christofides(self) :
         spanning_tree = self.solve_spanning_tree(range(self.size))
+        print "spanning tree computed"
         self.display_selected_edges(spanning_tree, "spanning")
         edges_by_vertex = {}
         for edge in spanning_tree :
@@ -20,6 +21,7 @@ class SolvingGraph(object) :
                 else : edges_by_vertex[vertex].append(edge)
         odd_degree_vertexes = filter(lambda v : len(edges_by_vertex[v])%2, edges_by_vertex.keys())
         perfect_matching = self.solve_perfect_matching(odd_degree_vertexes)
+        print "perfect matching computed"
         self.display_selected_edges(perfect_matching, "matching")
         for edge in perfect_matching :
             for vertex in edge :
@@ -89,7 +91,7 @@ class SolvingGraph(object) :
         for line in vertexes :
             for column in vertexes :
                 if line != column :
-                    weight = self.matrix[line][column]
+                    weight = float(self.matrix[line][column])
                     edge = QueueElement(line,column,weight/2)
                     queue.add(edge)
 
@@ -111,8 +113,8 @@ class SolvingGraph(object) :
         def epsilon(i, j, d, f) :
             sum_f = f[C.find(i)] + f[C.find(j)]
             if sum_f == 0 :
-               sum_f = 0.00001 # one divided by one hundred thousand
-            return (self.matrix[i][j] -d[i] -d[j])/(sum_f)
+               sum_f = 0.00001 # 1/100.000
+            return (float(self.matrix[i][j]) -d[i] -d[j])/(sum_f)
         
         #we also need a matrix that holds the best edge between two trees
         #can only be accessed through nodes representatives
@@ -138,13 +140,11 @@ class SolvingGraph(object) :
         while number_of_f1_trees > 1 :
             #take best edge
             best_edge = queue.get()
-
             if C.find(best_edge.i) == C.find(best_edge.j) :
                 continue #skip edges in same tree
 
             if best_edges[C.find(best_edge.i)][C.find(best_edge.j)] != best_edge.i*self.size+best_edge.j :
                 continue #skip edges which we do not update because not best ones
-
             #add it to solution
             F.append([best_edge.i, best_edge.j])
             e = epsilon(best_edge.i, best_edge.j, d, f)
@@ -187,10 +187,7 @@ class SolvingGraph(object) :
                 edge2 = [coded_edge2 // self.size, coded_edge2 % self.size]
                 e1 = epsilon(edge1[0], edge1[1], d, f)
                 e2 = epsilon(edge2[0], edge2[1], d, f)
-                if e1 < e2 :
-                    best_edges[r_union][column] = coded_edge1
-                else :
-                    best_edges[r_union][column] = coded_edge2
+                best_edges[r_union][column] = coded_edge1 if e1 < e2 else coded_edge2
 
             #continue with column
             for line in vertexes :
@@ -208,7 +205,7 @@ class SolvingGraph(object) :
             #are therefore NOT UPDATED and will have ERRONEOUS priorities
             #this is why we filter edges at beginning of the loop to keep only best ones
             for column in vertexes :
-                if (column != r_i) and (column != r_j) and C.find(column) != r_union :
+                if C.find(column) != r_union and best_edges[r_union][column] == column :
                     coded_edge = best_edges[r_union][column]
                     edge = [coded_edge // self.size, coded_edge % self.size]
                     priority = epsilon(r_union, column, d, f) + T
@@ -221,7 +218,7 @@ class SolvingGraph(object) :
 
     def solve_perfect_matching(self, vertexes) :
         F = self.goemans(lambda f1,f2 : (f1+f2)%2, vertexes)
-
+        print "F before :", F
         # create 
         edges_by_vertex = {}
         for edge in F :
@@ -271,21 +268,42 @@ class SolvingGraph(object) :
                     edges_by_vertex[vertex].remove(edge)
                 F.remove(edge)
                 previous_number = new_number
-
+        print "F between :", F
+        self.display_selected_edges(F, "between")
+        print edges_by_vertex
         # and still one iteration for creating shortcuts
-        for vertex in edges_by_vertex.keys() :
-            while len(edges_by_vertex[vertex]) >= 3 :
-                edge1 = edges_by_vertex[vertex][-1]
-                edge2 = edges_by_vertex[vertex][-2]
-                if edge1[0] == edge2[0] : shortcut = [edge1[1], edge2[1]]
-                elif edge1[0] == edge2[1] : shortcut = [edge1[1], edge2[0]]
-                elif edge1[1] == edge2[0] : shortcut = [edge1[0], edge2[1]]
-                elif edge1[1] == edge2[1] : shortcut = [edge1[0], edge2[0]]
-                edges_by_vertex[vertex].pop()
-                edges_by_vertex[vertex].pop()
-                F.append(shortcut)
-                F.remove(edge1)
-                F.remove(edge2)
+        changes = -1
+        while changes != 0 :
+            changes = 0
+            for vertex in edges_by_vertex.keys() :
+                print "\tVertex %s : %s" % (vertex, edges_by_vertex[vertex])
+                while len(edges_by_vertex[vertex]) > 2 :
+                    changes += 1
+                    edge1 = edges_by_vertex[vertex][-1]
+                    edge2 = edges_by_vertex[vertex][-2]
+                    print "iteration %s %s" % (edge1,edge2)
+                    if edge1[0] == edge2[0] :
+                        shortcut = [edge1[1], edge2[1]]
+                        edges_by_vertex[edge1[1]].remove(edge1)
+                        edges_by_vertex[edge2[1]].remove(edge2)
+                    elif edge1[0] == edge2[1] :
+                        shortcut = [edge1[1], edge2[0]]
+                        edges_by_vertex[edge1[1]].remove(edge1)
+                        edges_by_vertex[edge2[0]].remove(edge2)
+                    elif edge1[1] == edge2[0] :
+                        shortcut = [edge1[0], edge2[1]]
+                        edges_by_vertex[edge1[0]].remove(edge1)
+                        edges_by_vertex[edge2[1]].remove(edge2)
+                    elif edge1[1] == edge2[1] :
+                        shortcut = [edge1[0], edge2[0]]
+                        edges_by_vertex[edge1[0]].remove(edge1)
+                        edges_by_vertex[edge2[0]].remove(edge2)
+                    edges_by_vertex[vertex].pop()
+                    edges_by_vertex[vertex].pop()
+                    F.append(shortcut)
+                    F.remove(edge1)
+                    F.remove(edge2)
+        print "F after :", F
         return F
 
     def read_file(self, filename) :
