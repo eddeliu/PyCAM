@@ -5,6 +5,7 @@ stuff
 
 from pycam.PathProcessors import BasePathProcessor
 # use Grid and Box objects from Contour2dCutter
+from pycam.Geometry.Path import Path
 import heapq # for Dijkstra's algorithm optimisation (using priority queue)
 from solvinggraph import SolvingGraph
 
@@ -27,10 +28,17 @@ class Pocket(object) :
     @property
     def size(self) : return len(self.boxes)
 
+    def free(self) :
+        del self.boxes
+        del self.pocket_above
+        del self.pockets_underneath
+        del self.matrix_distance
+        del self.matrix_predecessor
+        del self.solved_path
+
     def __str__(self) :
-        return("Pocket %s (%s / %s)\n" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
-            ','.join(str(pocket.id) for pocket in self.pockets_underneath)))# \
-            #+ '\n\t'.join(str(box) for box in self.boxes))
+        return("Pocket %s (%s / %s) [%s]" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
+            ','.join(str(pocket.id) for pocket in self.pockets_underneath), len(self.boxes)))
 
     def compute_dijkstra(self) :
         # build matrices to hold results
@@ -72,7 +80,9 @@ class Pocket(object) :
         self.matrix_predecessor = matrix_predecessor
 
     def solve_path(self) :
+        print "dijkstra computation begin ..."
         self.compute_dijkstra()
+        print "dijkstra computation ended"
         graph = SolvingGraph(self.matrix_distance)
         index_path = graph.christofides()
         box_path = [self.boxes[index[0]] for index in index_path] + [self.boxes[index_path[0][0]]]
@@ -116,34 +126,39 @@ class Contour2dFlooder(BasePathProcessor) :
         for layer in xrange(self.maxz+1) :
             self.do_layer(self.maxz - layer)
         #self.draw_pocket_PBM()
-        self.paths = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1)) # TODO: skypocket
+        box_path = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1)) # TODO: skypocket
+        self.paths.append(Path())
+        map(self.paths[0].append, (box.get_center() for box in box_path))
 
     def find_path_from(self, start_box) :
         print "find path from", start_box
         start_pocket = start_box.pocket
+        print "pocket size :", len(start_pocket.boxes)
         pocket_path = start_pocket.solve_path_from(start_box)
-        if not start_pocket.pockets_underneath :
-            return pocket_path
+        if start_pocket.bottom :
+            path = pocket_path
         else :
             underneath_pockets = {}
             encountered_boxes = {}
-            for underneath_pocket in start_pocket.underneath_pockets :
+            for underneath_pocket in start_pocket.pockets_underneath :
                 underneath_pockets[underneath_pocket] = underneath_pocket.size
             path = []
             for box in pocket_path :
                 path.append(box)
-                if box not in encoutered_boxes :
+                if box not in encountered_boxes :
                     encountered_boxes[box] = 1
                     underneath_box = box.get_neighbour(0, 0, -1)
-                    if underneath_box.free :
+                    if underneath_box.pocket is not None :
                         underneath_pockets[underneath_box.pocket] -= 1
                         if underneath_pockets[underneath_box.pocket] == 0 :
-                            path.extend(self.find_path_from(underneath_box + box))
+                            path.extend(self.find_path_from(underneath_box) + [box])
                             path.append(box)
-                        # else the pocket cennot be milled yet
+                        # else the pocket cannot be milled yet
                     # else the cutter is not above pocket
                 # else the box has already been milled
-            return path
+        start_pocket.free()
+        del start_pocket
+        return path
 
     def do_layer(self, layer) :
         self._layer = self.grid.layers[layer]
@@ -249,12 +264,12 @@ class Contour2dFlooder(BasePathProcessor) :
     def link_pockets(self, pockets) :
         for pocket in pockets :
             if pocket.boxes[0].z != self.maxz :
-                pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, -1).pocket
+                pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, 1).pocket
+                pocket.pocket_above.pockets_underneath.append(pocket)
                 self.link_pocket(pocket)
             else :
                 pocket.pocket_above = None
                 self.link_pocket(pocket)
-            #pocket.boxes[0].export_your_graph_of_shortest_paths()
 
     def link_pocket(self, pocket) :
         for box in pocket.boxes :

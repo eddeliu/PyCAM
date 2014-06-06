@@ -10,8 +10,11 @@ class SolvingGraph(object) :
             self.matrix = matrix
 
     def christofides(self) :
+        if self.size == 1 :
+            return [[0,0]] # else algorithm would not find path
+        print "spanning tree computation begin ..."
         spanning_tree = self.solve_spanning_tree(range(self.size))
-        print "spanning tree computed"
+        print "spanning tree computation ended"
         self.display_selected_edges(spanning_tree, "spanning")
         edges_by_vertex = {}
         for edge in spanning_tree :
@@ -20,8 +23,9 @@ class SolvingGraph(object) :
                     edges_by_vertex[vertex] = [edge]
                 else : edges_by_vertex[vertex].append(edge)
         odd_degree_vertexes = filter(lambda v : len(edges_by_vertex[v])%2, edges_by_vertex.keys())
+        print "perfect matching computation begin ..."
         perfect_matching = self.solve_perfect_matching(odd_degree_vertexes)
-        print "perfect matching computed"
+        print "perfect matching computation ended"
         self.display_selected_edges(perfect_matching, "matching")
         for edge in perfect_matching :
             for vertex in edge :
@@ -136,6 +140,7 @@ class SolvingGraph(object) :
         #see paper for more details
         T = 0
 
+        print "iteration starting ..."
         #main loop
         while number_of_f1_trees > 1 :
             #take best edge

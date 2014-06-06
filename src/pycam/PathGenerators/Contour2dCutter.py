@@ -35,6 +35,10 @@ class Box(object) :
     def __lt__(self, other) :
         # used in Dijkstra's algorithm implementation by heapq.heappush
         return self._distance < other._distance
+    def free_memory(self) :
+        del self.lines
+        del self.pocket
+        del self.free_neighbours
     @property
     def free(self) : return len(self.lines) == 0
     @property
@@ -212,11 +216,17 @@ class Grid(object) :
         self.do_pavement()
     def do_pavement(self) :
         raise NotImplementedError("Abstract Grid.do_pavement")
+    def free(self) :
+        for layer in self.layers :
+            for line in layer :
+                for box in line :
+                    box.free_memory()
+        del self.layers
     def iterate_on_layers(self) :
         for layer in xrange(self.nb_layers) :
             self.layers.append([[self.Box(x, y, layer) \
-                                for y in range(self.nb_columns)] \
-                                for x in range(self.nb_lines)])
+                                for y in xrange(self.nb_columns)] \
+                                for x in xrange(self.nb_lines)])
             yield self.heights[layer]
     def get_box(self, line, column, layer) :
         try :
@@ -414,7 +424,8 @@ class Contour2dCutter(object) :
         #self.grid.draw_contour_PBM()
         self.pa.initialise(self.grid)
         self.pa.do_path()
-        print self.pa.paths
+        self.grid.free()
+        del self.grid
         return self.pa.paths
 
     @staticmethod
