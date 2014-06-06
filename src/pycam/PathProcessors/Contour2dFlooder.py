@@ -75,7 +75,7 @@ class Pocket(object) :
         self.compute_dijkstra()
         graph = SolvingGraph(self.matrix_distance)
         index_path = graph.christofides()
-        box_path = [self.boxes[index[0]] for index in index_path] + [index_path[0][0]]
+        box_path = [self.boxes[index[0]] for index in index_path] + [self.boxes[index_path[0][0]]]
         real_path = []
         i = 0
         while i < len(box_path) :
@@ -122,7 +122,7 @@ class Contour2dFlooder(BasePathProcessor) :
         print "find path from", start_box
         start_pocket = start_box.pocket
         pocket_path = start_pocket.solve_path_from(start_box)
-        if not start_pocket.underneath_pockets :
+        if not start_pocket.pockets_underneath :
             return pocket_path
         else :
             underneath_pockets = {}

@@ -218,7 +218,7 @@ class SolvingGraph(object) :
 
     def solve_perfect_matching(self, vertexes) :
         F = self.goemans(lambda f1,f2 : (f1+f2)%2, vertexes)
-        print "F before :", F
+
         # create 
         edges_by_vertex = {}
         for edge in F :
@@ -268,42 +268,35 @@ class SolvingGraph(object) :
                     edges_by_vertex[vertex].remove(edge)
                 F.remove(edge)
                 previous_number = new_number
-        print "F between :", F
-        self.display_selected_edges(F, "between")
-        print edges_by_vertex
+
         # and still one iteration for creating shortcuts
-        changes = -1
-        while changes != 0 :
-            changes = 0
-            for vertex in edges_by_vertex.keys() :
-                print "\tVertex %s : %s" % (vertex, edges_by_vertex[vertex])
-                while len(edges_by_vertex[vertex]) > 2 :
-                    changes += 1
-                    edge1 = edges_by_vertex[vertex][-1]
-                    edge2 = edges_by_vertex[vertex][-2]
-                    print "iteration %s %s" % (edge1,edge2)
-                    if edge1[0] == edge2[0] :
-                        shortcut = [edge1[1], edge2[1]]
-                        edges_by_vertex[edge1[1]].remove(edge1)
-                        edges_by_vertex[edge2[1]].remove(edge2)
-                    elif edge1[0] == edge2[1] :
-                        shortcut = [edge1[1], edge2[0]]
-                        edges_by_vertex[edge1[1]].remove(edge1)
-                        edges_by_vertex[edge2[0]].remove(edge2)
-                    elif edge1[1] == edge2[0] :
-                        shortcut = [edge1[0], edge2[1]]
-                        edges_by_vertex[edge1[0]].remove(edge1)
-                        edges_by_vertex[edge2[1]].remove(edge2)
-                    elif edge1[1] == edge2[1] :
-                        shortcut = [edge1[0], edge2[0]]
-                        edges_by_vertex[edge1[0]].remove(edge1)
-                        edges_by_vertex[edge2[0]].remove(edge2)
-                    edges_by_vertex[vertex].pop()
-                    edges_by_vertex[vertex].pop()
-                    F.append(shortcut)
-                    F.remove(edge1)
-                    F.remove(edge2)
-        print "F after :", F
+        for vertex in edges_by_vertex.keys() :
+            while len(edges_by_vertex[vertex]) > 2 :
+                len1_vertexes = []
+                len_sup_2_vertexes = []
+                # analyze connex vertexes
+                for edge in edges_by_vertex[vertex] :
+                    num_of_edges = len(edges_by_vertex[edge[0]+edge[1]-vertex]) # math hack : a+b-a = b
+                    if num_of_edges == 1 : len1_vertexes.append(edge)
+                    elif num_of_edges > 2 : len_sup_2_vertexes.append(edge)
+                # find good pair
+                if len(len1_vertexes) >= 2 :
+                    edge1,edge2 = len1_vertexes[0], len1_vertexes[1]
+                elif len(len_sup_2_vertexes) >= 2 :
+                    edge1,edge2 = len_sup_2_vertexes[0], len_sup_2_vertexes[1]
+                # create shortcut and update edges
+                shortcut = [edge1[edge1.index(edge1[0]+edge1[1]-vertex)],
+                            edge2[edge2.index(edge2[0]+edge2[1]-vertex)]] # same math hack
+                for vertex in shortcut :
+                    edges_by_vertex[vertex].append(shortcut)
+                for vertex1,vertex2 in zip(edge1,edge2) :
+                    edges_by_vertex[vertex1].remove(edge1)
+                    edges_by_vertex[vertex2].remove(edge2)
+                # and finally update solution
+                F.remove(edge1)
+                F.remove(edge2)
+                F.append(shortcut)
+
         return F
 
     def read_file(self, filename) :
