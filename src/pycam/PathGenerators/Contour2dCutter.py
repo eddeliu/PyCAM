@@ -426,7 +426,7 @@ class Contour2dCutter(object) :
         self.pa.do_path()
         self.grid.free()
         del self.grid
-        return self.pa.paths
+        return None
 
     @staticmethod
     def mergeRiddanceLines(lines) :
