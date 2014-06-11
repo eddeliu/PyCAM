@@ -6,13 +6,12 @@ class DisjointSet(object) :
         self.values.add(value)
         self.representatives[value] = value
     def union(self, value, other_value) :
-        # repr of 1st value become repr of 2nd value
+        # repr of 1st value become repr of 2nd value too
         self.representatives[self.find(other_value)] = \
             self.representatives[self.find(value)]
     def find(self, value) :
         if value != self.representatives[value] :
-            self.representatives[value] = \
-                self.find(self.representatives[value])
+            self.representatives[value] = self.find(self.representatives[value])
         return self.representatives[value]
     def select(self, value) :
         rep = self.find(value)

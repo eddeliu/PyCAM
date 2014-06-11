@@ -8,6 +8,8 @@ from pycam.PathProcessors import BasePathProcessor
 from pycam.Geometry.Path import Path
 import heapq # for Dijkstra's algorithm optimisation (using priority queue)
 from solvinggraph import SolvingGraph
+from numpy import zeros as numpy_zeros
+from sys import getsizeof
 
 class Pocket(object) :
     id = 1
@@ -29,11 +31,24 @@ class Pocket(object) :
     def size(self) : return len(self.boxes)
 
     def free(self) :
+        #print "size of", self, getsizeof(self)
+        #print "\tsize of boxes", getsizeof(self.boxes)
+        #print "\tsize of above", getsizeof(self.pocket_above)
+        #print "\tsize of underneath", getsizeof(self.pockets_underneath)
+        #print "\tsize of distance", getsizeof(self.matrix_distance)
+        #print "\tsize of predecessor", getsizeof(self.matrix_predecessor)
+        #print "\tsize of path", getsizeof(self.solved_path)
+        #print "\ttotal size :", sum(map(getsizeof, (self, self.boxes, self.pocket_above, self.pockets_underneath, self.matrix_distance, self.matrix_predecessor, self.solved_path))) 
+        del self.boxes[:]
         del self.boxes
         del self.pocket_above
+        del self.pockets_underneath[:]
         del self.pockets_underneath
         del self.matrix_distance
+        for line in self.matrix_predecessor :
+            del line[:]
         del self.matrix_predecessor
+        del self.solved_path[:]
         del self.solved_path
 
     def __str__(self) :
@@ -43,7 +58,7 @@ class Pocket(object) :
     def compute_dijkstra(self) :
         # build matrices to hold results
         length = len(self.boxes)
-        matrix_distance = [[0]*length for _ in xrange(length)]
+        matrix_distance = numpy_zeros(shape=(length,length))
         matrix_predecessor = [[None]*length for _ in xrange(length)]
 
         # assign to each box his index in matrices
@@ -67,7 +82,7 @@ class Pocket(object) :
                 nearest = pop(neighbours_left)
                 new_distance = nearest._distance + 1
                 for neighbour in nearest.free_neighbours :
-                    previous_distance = matrix_distance[box_index][neighbour.index]
+                    previous_distance = matrix_distance.item(box_index, neighbour.index)
                     if previous_distance == 0 :
                         neighbour._distance = new_distance
                         matrix_distance[box_index][neighbour.index] = new_distance

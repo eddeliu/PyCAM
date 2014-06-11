@@ -21,7 +21,6 @@ class Box(object) :
     #   - get_center
     #   - get_location (static)
     #   - know_your_free_neighbours
-    #   - know_your_pocket_neighbourhood
     def __init__(self, x, y, z) :
         self.x = x
         self.y = y
@@ -64,8 +63,6 @@ class Box(object) :
         return Box.grid.get_box(self.x+line, self.y+column, self.z+layer)
     def know_your_free_neighbours(self) :
         raise NotImplementedError("Abstract Grid.know_your_free_neighbours")
-    def know_your_pocket_neighbourhood(self) :
-        raise NotImplementedError("Abstract Grid.know_your_pocket_neighbourhood")
     def get_center(self) :
         raise NotImplementedError("Abstract Grid.get_center")
     @staticmethod
@@ -92,6 +89,17 @@ class SquareBox(Box) :
         return (int((x-Box.grid.minx)//Box.grid.padx), \
                 int((y-Box.grid.miny)//Box.grid.pady), \
                 int((z-Box.grid.minz)//Box.grid.padz))
+    def know_your_free_neighbours(self) :
+        neighbours = []
+        if self.x != 0 :
+            neighbours.append(self.get_neighbour(-1, 0, 0))
+        if self.x != Box.grid.nb_lines-1 :
+            neighbours.append(self.get_neighbour(1, 0, 0))
+        if self.y != 0 :
+            neighbours.append(self.get_neighbour(0, -1, 0))
+        if self.y != Box.grid.nb_columns-1 :
+            neighbours.append(self.get_neighbour(0, 1, 0))
+        self.free_neighbours = filter(lambda b : b.free, neighbours)
 
 class HexaBox(Box) :
     def get_center(self) :
@@ -164,29 +172,7 @@ class HexaBox(Box) :
                     neighbours.append(self.get_neighbour(1, 1, 0))
         if self.y != Box.grid.nb_columns-1 :
             neighbours.append(self.get_neighbour(0, 1, 0))
-        self.free_neighbours = filter(lambda v : v.free, neighbours)
-    def export_your_graph_of_shortest_paths(self) :
-        m = Box.grid.matrix
-        this = self.viz()
-        ind = self.index
-        pathfile = open('dijkstra.dot', 'w')
-        pathfile.write('graph G {\n')
-        pathfile.write('\tnode [shape=hexagon]\n')
-        if self.pocket :
-            for vertex in self.pocket.boxes :
-                pathfile.write('\t%s -- %s [%s];\n'%(this, vertex.viz(), m[ind][vertex.index][0]))
-        pathfile.write('}\n')
-        pathfile.close()
-        gridfile = open('grid.dot', 'w')
-        encountered = set()
-        gridfile.write('graph G {\n')
-        gridfile.write('\tnode [shape=hexagon]\n')
-        if self.pocket :
-            for vertex in self.pocket.boxes :
-                gridfile.write('\t%s -- {%s};\n'%(vertex.viz(), ' '.join(map(Box.viz, filter(lambda n : n not in encountered, vertex.free_neighbours)))))
-                encountered.add(vertex)
-        gridfile.write('}\n')
-        gridfile.close()
+        self.free_neighbours = filter(lambda b : b.free, neighbours)
 
 class GridBox(type) :
     def __new__(self, grid) :
@@ -232,7 +218,7 @@ class Grid(object) :
         try :
             return self.layers[layer][line][column]
         except IndexError :
-            raise IndexError("get_box(%s, %s, %s) cannot be resolved (max : %s, %s, %s) !" % \
+            raise IndexError("get_box(%s, %s, %s) cannot be resolved (max : %s, %s, %s)" % \
                     (line, column, layer, self.nb_lines-1, self.nb_columns-1, self.nb_layers-1))
     def discretise_point(self, p) :
         return self.get_box(*self.Box.get_location(p.x, p.y, p.z))
@@ -253,67 +239,46 @@ class Grid(object) :
                 for line in range(self.nb_lines) :
                     cutterfile.write(' '.join(['0' if box.free else '1'
                             for box in self.layers[nb_layer][line]])+'\n')
-    @staticmethod
-    def floatrange(start, end, inc, reverse=False) :
-        l = []
-        n = start
-        while n < end :
-            l.append(n)
-            n += inc
-        if reverse :
-            l.reverse()
-        return l
 
 class SquareGrid(Grid) :
-    def calculerPavage(self) :
-        self.rangex = Grille.floatrange(self.model.minx, self.model.maxx, self.diametre)
-        self.rangey = Grille.floatrange(self.model.miny, self.model.maxy, self.diametre)
+    def do_pavement(self) :
+        self.rangex = [self.model.minx+i*self.diameter for i in xrange(int((self.model.maxx-self.model.minx)/self.diameter+1))]
+        self.rangey = [self.model.minx+i*self.diameter for i in xrange(int((self.model.maxy-self.model.miny)/self.diameter+1))]
         self.nb_lines = len(self.rangex)
         self.nb_columns = len(self.rangey)
-        self.padx, self.pady, self.padz = self.diametre, self.diametre, self.diametre # TODO
+        self.padx, self.pady, self.padz = self.diameter, self.diameter, self.diameter # TODO
     def discretise_line(self, line) : # TODO: OPTIMISER !!!!! (pas de boucle, un seul cas avec 2 passages, calcul de l'intervale sans list.index)
-        # on discrétise les deux extrémités du segment
-        c1, c2 = self.discretiser_point(ligne.p1), self.discretiser_point(ligne.p2)
-        c1.lignes.append(ligne)
-        c2.lignes.append(ligne)
-        if ligne.p1.x == ligne.p2.x and ligne.p1.x in self.rangex : # la ligne appartient au pavage vertical
-            # alors on va ajouter toutes les paires de cases qu'elle rencontre
-            x = self.rangex.index(ligne.p1.x)
+        c1, c2 = self.discretise_point(line.p1), self.discretise_point(line.p2)
+        c1.lines.append(line)
+        c2.lines.append(line)
+        if line.p1.x == line.p2.x and line.p1.x in self.rangex :
+            x = self.rangex.index(line.p1.x)
             if c1.y > c2.y : c1, c2 = c2, c1
             for y in range(c1.y, c2.y+1) :
-                self.get_case(c1.z, x, y).lignes.append(ligne)
-        elif ligne.p1.y == ligne.p2.y and ligne.p1.y in self.rangey : # la ligne appartient au pavage horizontal
-            y = self.rangey.index(ligne.p1.y)
+                self.get_box(x, y, c1.z).lines.append(line)
+        elif line.p1.y == line.p2.y and line.p1.y in self.rangey :
+            y = self.rangey.index(line.p1.y)
             if c1.x > c2.x : c1, c2 = c2, c1
             for x in range(c1.x, c2.x+1) :
-                self.get_case(c1.z, x, y).lignes.append(ligne)
-        else : # sinon la ligne est simplement verticale, horizontale ou oblique
-            # alors on va discrétiser toutes les cases traversées
-            # d'abord les intersections verticales
+                self.get_box(x, y, c1.z).lines.append(line)
+        else :
             ordx = 1
-            if c1.x > c2.x : c1, c2 = c2, c1 # pour itérer dans le bon sens
+            if c1.x > c2.x : c1, c2 = c2, c1
             for x in self.rangex[c1.x+1:c2.x] :
-                # pour cela on calcule l'intersection de la ligne avec la grille des X
-                sec, d = ligne.get_intersection(Line(Point(x, self.miny, ligne.p1.z), \
-                                                Point(x, self.maxy, ligne.p1.z)))
-                if sec is None : # il n'y a pas intersection : les deux lignes sont parallèles et distinctes
-                    break # la ligne sera traitée par l'itération verticale
-                # puis on trouve à quelle colonne l'intersection appartient
-                dsec = self.Case.get_emplacement(0, sec.y, 0)
-                # et on discrétise alors la case correspondante
-                self.get_case(c1.z, c1.x+ordx, dsec[1]).lignes.append(ligne)
-                # le [1] correspond à la composante Y de la coordonnée
+                sec, d = line.get_intersection(Line(Point(x, self.miny, line.p1.z), \
+                                                Point(x, self.maxy, line.p1.z)))
+                if sec is None : break
+                dsec = self.Box.get_location(0, sec.y, 0)
+                self.get_box(c1.x+ordx, dsec[1], c1.z).lines.append(line)
                 ordx += 1
-            # puis celles horizontales de la même manière
             ordy = 1
             if c1.y > c2.y : c1, c2 = c2, c1
             for y in self.rangey[c1.y+1:c2.y] :
-                sec, d = ligne.get_intersection(Line(Point(self.minx, y, ligne.p1.z), \
-                                                Point(self.maxx, y, ligne.p1.z)))
-                if sec is None :
-                    break # la ligne est horizontale, et donc déjà traitée
-                dsec = self.Case.get_emplacement(sec.x, 0, 0)
-                self.get_case(c1.z, dsec[0], c1.y+ordy).lignes.append(ligne)
+                sec, d = line.get_intersection(Line(Point(self.minx, y, line.p1.z), \
+                                                Point(self.maxx, y, line.p1.z)))
+                if sec is None : break
+                dsec = self.Box.get_location(sec.x, 0, 0)
+                self.get_box(dsec[0], c1.y+ordy, c1.z).lines.append(line)
                 ordy += 1
 
 class HexaGrid(Grid) :
@@ -374,10 +339,17 @@ class Contour2dCutter(object) :
         self.cutter = cutter
         self.model = models[0]
         self.pa = path_processor
-        #self.grid = SquareGrid(models[0], cutter)
-        self.grid = HexaGrid(models[0], cutter)
+        self.grid = SquareGrid(models[0], cutter)
+        #self.grid = HexaGrid(models[0], cutter)
 
     def GenerateToolPath(self, callback=None) :
+        import cProfile
+        from datetime import datetime
+        result = [None]
+        cProfile.runctx('result[0] = self.gen()', globals(), locals(), 'profile_'+datetime.now().strftime('%H:%M')+'.prof')
+        return result[0]
+
+    def gen(self, callback=None) :
         triangles = self.model.triangles()
         equations = {}
 
@@ -426,7 +398,7 @@ class Contour2dCutter(object) :
         self.pa.do_path()
         self.grid.free()
         del self.grid
-        return None
+        return self.pa.paths
 
     @staticmethod
     def mergeRiddanceLines(lines) :
