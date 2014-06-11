@@ -189,8 +189,8 @@ class Grid(object) :
     #   - discretise_line
     def __init__(self, model, cutter) :
         self.model = model
-        self.diameter = 2*cutter.radius
-        self.height = self.diameter # TODO: enfoncement
+        self.radius = cutter.radius
+        self.height = self.radius * 2 # TODO: enfoncement
         self.nb_layers = ceil( (model.maxz - model.minz) / self.height) +1 # TODO: +1 skypocket
         self.layers = []
         #self.heights = Grid.floatrange(model.minz, model.maxz, self.height, False)
@@ -242,11 +242,12 @@ class Grid(object) :
 
 class SquareGrid(Grid) :
     def do_pavement(self) :
+        self.diameter = self.radius * sqrt(2)
         self.rangex = [self.model.minx+i*self.diameter for i in xrange(int((self.model.maxx-self.model.minx)/self.diameter+1))]
         self.rangey = [self.model.minx+i*self.diameter for i in xrange(int((self.model.maxy-self.model.miny)/self.diameter+1))]
         self.nb_lines = len(self.rangex)
         self.nb_columns = len(self.rangey)
-        self.padx, self.pady, self.padz = self.diameter, self.diameter, self.diameter # TODO
+        self.padx, self.pady, self.padz = self.diameter, self.diameter, self.radius*2 # TODO
     def discretise_line(self, line) : # TODO: OPTIMISER !!!!! (pas de boucle, un seul cas avec 2 passages, calcul de l'intervale sans list.index)
         c1, c2 = self.discretise_point(line.p1), self.discretise_point(line.p2)
         c1.lines.append(line)
@@ -283,7 +284,7 @@ class SquareGrid(Grid) :
 
 class HexaGrid(Grid) :
     def do_pavement(self) :
-        self.rad = self.diameter/2
+        self.rad = self.radius
         self.apo = sqrt(3)/2*self.rad
         self.apo2 = self.apo*2
         self.rad05 = self.rad*0.5
@@ -291,7 +292,6 @@ class HexaGrid(Grid) :
         self.slope = 2./sqrt(3.)
         self.nb_lines = int((self.model.maxx - self.model.minx + self.apo) // self.apo2)+1
         self.nb_columns = int((self.model.maxy - self.model.miny + self.rad05) // self.rad15)+1
-        self.height = self.diameter # TODO: take account of overlapping, ...
     def discretise_line(self, line) :
         if line.p1 > line.p2 : line.p1, line.p2 = line.p2, line.p1
         b1, b2 = self.discretise_point(line.p1), self.discretise_point(line.p2)
@@ -339,8 +339,8 @@ class Contour2dCutter(object) :
         self.cutter = cutter
         self.model = models[0]
         self.pa = path_processor
-        self.grid = SquareGrid(models[0], cutter)
-        #self.grid = HexaGrid(models[0], cutter)
+        #self.grid = SquareGrid(models[0], cutter)
+        self.grid = HexaGrid(models[0], cutter)
 
     def GenerateToolPath(self, callback=None) :
         import cProfile
@@ -393,10 +393,10 @@ class Contour2dCutter(object) :
                 projection = planeInf.get_line_projection(line)
                 self.grid.discretise_line(projection)
             #self.grid.display_complete_layer(height)
-        #self.grid.draw_contour_PBM()
+        self.grid.draw_contour_PBM()
         self.pa.initialise(self.grid)
-        self.pa.do_path()
-        self.grid.free()
+        #self.pa.do_path()
+        #self.grid.free()
         del self.grid
         return self.pa.paths
 
