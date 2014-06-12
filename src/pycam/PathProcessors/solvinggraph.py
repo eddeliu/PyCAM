@@ -155,7 +155,7 @@ class SolvingGraph(object) :
             if C.find(best_edge.i) == C.find(best_edge.j) :
                 continue #skip edges in same tree
 
-            if best_edges.item(C.find(best_edge.i), C.find(best_edge.j)) != best_edge.i*self.size+best_edge.j :
+            if best_edges.item(best_edge.i, best_edge.j) != best_edge.i*self.size+best_edge.j :
                 continue #skip edges which we do not update because not best ones
             #add it to solution
             F.append([best_edge.i, best_edge.j])

@@ -10,9 +10,17 @@ class DisjointSet(object) :
         self.representatives[self.find(other_value)] = \
             self.representatives[self.find(value)]
     def find(self, value) :
-        if value != self.representatives[value] :
-            self.representatives[value] = self.find(self.representatives[value])
+        while self.representatives[value] != self.representatives[self.representatives[value]] :
+            self.representatives[value] = self.representatives[self.representatives[value]]
         return self.representatives[value]
+        #other way to do it but less clear and equally faster
+        #this_repr = self.representatives[value]
+        #repr_of_this_repr = self.representatives[this_repr]
+        #while this_repr != repr_of_this_repr :
+            #self.representatives[this_repr] = self.representatives[repr_of_this_repr]
+            #this_repr = self.representatives[this_repr]
+            #repr_of_this_repr = self.representatives[this_repr]
+        #return this_repr
     def select(self, value) :
         rep = self.find(value)
         return filter(lambda val : self.find(val) == rep, self.values)

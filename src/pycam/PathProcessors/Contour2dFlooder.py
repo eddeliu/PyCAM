@@ -146,7 +146,7 @@ class Contour2dFlooder(BasePathProcessor) :
         map(self.paths[0].append, (box.get_center() for box in box_path))
 
     def find_path_from(self, start_box) :
-        print "find path from", start_box
+        #print "find path from", start_box
         start_pocket = start_box.pocket
         print "pocket size :", len(start_pocket.boxes)
         pocket_path = start_pocket.solve_path_from(start_box)
