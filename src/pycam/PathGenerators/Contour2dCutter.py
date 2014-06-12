@@ -108,7 +108,6 @@ class HexaBox(Box) :
                     self.z*Box.grid.height + Box.grid.minz)
     @staticmethod
     def get_location(x, y, z) :
-        print x, y, z
         x -= Box.grid.minx
         y -= Box.grid.miny
         z -= Box.grid.minz
@@ -120,14 +119,12 @@ class HexaBox(Box) :
         x_possible = int(x // apo2)
         y_possible = int(y // rad15)
         if (y % rad15) < rad : # "core" of an hexagon
-            print "core"
             y_found = y_possible
             if y_found % 2 : # odd column (first hexagon is full)
                 x_found = int(x // apo2)
             else : # even column (first hexagon is halved)
                 x_found = int((x+apo) // apo2)
         else :
-            print "not core"
             # "boundaries" of hexagons
             # reduce all cases to one which solution is known
             #PATTERN_V = True
@@ -297,47 +294,24 @@ class HexaGrid(Grid) :
         self.slope = 2./sqrt(3.)
         self.nb_lines = int((self.model.maxx - self.model.minx + self.apo) // self.apo2)+1
         self.nb_columns = int((self.model.maxy - self.model.miny + self.rad05) // self.rad15)+1
-        print ''
-        print "rad", self.rad
-        print "apo", self.apo
-        print "apo2", self.apo2
-        print "rad05", self.rad05
-        print "rad15", self.rad15
-        print "slope", self.slope
-        print "minx", self.minx
-        print "maxx", self.maxx
-        print "miny", self.miny
-        print "maxy", self.maxy
-        print "minz", self.minz
-        print "maxz", self.maxz
-        print ''
     def discretise_line(self, line) :
-        print "line", line
         if line.p1 > line.p2 :
             line.p1, line.p2 = line.p2, line.p1
-            print "line", line
         b1, b2 = self.discretise_point(line.p1), self.discretise_point(line.p2)
-        print "b1", b1
-        print "b2", b2
         b1.lines.append(line)
         b2.lines.append(line)
         delta = line.p2.sub(line.p1)
-        print "delta", delta
         if abs(delta.x) < epsilon : # vertical line
-            print "vertical"
-            slope = 0
+            slope = 10**15
             iterate_on = 'Y'
         elif abs(delta.y) < epsilon : # horizontal line
-            print "horizontal"
             slope = 0
             iterate_on = 'X'
         else :
             slope = delta.y/delta.x
-            print "slope", slope
             iterate_on = 'X' if slope < self.slope else 'Y'
         z = line.p1.z
         if iterate_on == 'X' :
-            print "iterate on X"
             apo = self.apo
             dy = slope*apo
             next_apo = (line.p1.x//apo+1)*apo
@@ -350,16 +324,14 @@ class HexaGrid(Grid) :
                 x += apo
                 y += dy
         else : # iterate on Y
-            print "iterate on Y"
             rad = self.rad
-            dx = slope*rad
+            dx = 1/slope/rad
             next_rad = (line.p1.y//rad+1)*rad
-            x = line.p1.x + (next_rad - line.p1.y)*slope
+            x = line.p1.x + (next_rad - line.p1.y)*(1/slope)
             y = next_rad
             max_y = line.p2.y
             while y < max_y :
                 box = self.get_box(*self.Box.get_location(x, y, z))
-                print "box", box
                 box.lines.append(line)
                 y += rad
                 x += dx
@@ -422,12 +394,11 @@ class Contour2dCutter(object) :
                 to_project.extend(uniques)
             for line in to_project :
                 projection = planeInf.get_line_projection(line)
-                print projection
                 self.grid.discretise_line(projection)
             #self.grid.display_complete_layer(height)
         #self.grid.draw_contour_PBM()
         self.pa.initialise(self.grid)
-        #self.pa.do_path()
+        self.pa.do_path()
         #self.grid.free_memory()
         return self.pa.paths
 
