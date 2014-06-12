@@ -35,7 +35,6 @@ class Box(object) :
         # used in Dijkstra's algorithm implementation by heapq.heappush
         return self._distance < other._distance
     def free_memory(self) :
-        del self.lines
         del self.pocket
         del self.free_neighbours
     @property
@@ -202,11 +201,14 @@ class Grid(object) :
         self.do_pavement()
     def do_pavement(self) :
         raise NotImplementedError("Abstract Grid.do_pavement")
-    def free(self) :
+    def free_memory(self) :
         for layer in self.layers :
             for line in layer :
                 for box in line :
                     box.free_memory()
+                    del box
+                del line
+            del layer
         del self.layers
     def iterate_on_layers(self) :
         for layer in xrange(self.nb_layers) :
