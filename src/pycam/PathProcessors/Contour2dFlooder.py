@@ -7,7 +7,7 @@ from pycam.PathProcessors import BasePathProcessor
 # use Grid and Box objects from Contour2dCutter
 from pycam.Geometry.Path import Path
 import heapq # for Dijkstra's algorithm optimisation (using priority queue)
-from solvinggraph import SolvingGraph
+from pycam.Utils.SolvingGraph import SolvingGraph
 from numpy import zeros as numpy_zeros
 from sys import getsizeof
 

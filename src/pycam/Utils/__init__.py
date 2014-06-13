@@ -23,7 +23,8 @@ along with PyCAM.  If not, see <http://www.gnu.org/licenses/>.
 __all__ = ["iterators", "polynomials", "ProgressCounter", "threading",
         "get_platform", "get_external_program_location", "URIHandler",
         "PLATFORM_WINDOWS", "PLATFORM_MACOS", "PLATFORM_LINUX",
-        "PLATFORM_UNKNOWN"]
+        "PLATFORM_UNKNOWN", \
+        "SolvingGraph", "VariablePriorityQueue", "DisjointSet"]
 
 import sys
 import os
