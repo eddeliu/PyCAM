@@ -228,9 +228,9 @@ class Grid(object) :
         raise NotImplementedError("Abstract Grid.discretise_line")
     def display_complete_layer(self, z) :
         index = self.heights.index(z)
-        print("\nLayer %d/%d : " % (index+1, self.nb_layers))
+        log.info("\nLayer %d/%d : " % (index+1, self.nb_layers))
         for column in range(self.nb_columns) :
-            print(' '.join(self.get_box(line, column, index).sq() \
+            log.info(' '.join(self.get_box(line, column, index).sq() \
                 for line in range(self.nb_lines)))
     def draw_contour_PBM(self) :
         for nb_layer in range(self.nb_layers) :
@@ -349,7 +349,7 @@ class Contour2dCutter(object) :
         import cProfile
         from datetime import datetime
         result = [None]
-        cProfile.runctx('result[0] = self.gen()', globals(), locals(), 'profile_'+datetime.now().strftime('%H:%M')+'.prof')
+        cProfile.runctx('result[0] = self.gen(callback)', globals(), locals(), 'profile_'+datetime.now().strftime('%H:%M')+'.prof')
         return result[0]
 
     def gen(self, callback=None) :
@@ -376,7 +376,19 @@ class Contour2dCutter(object) :
                 equation2D(self.p1.y, self.p1.z, self.p2.y, self.p2.z)]))
         Line.__eq__ = lambda self, other : hash(self) == hash(other)
 
+        num_of_layers = self.grid.nb_layers
+        current_layer_num = 1
+        quit_requested = False
+        progress_counter = ProgressCounter(num_of_layers, callback)
+
         for height in self.grid.iterate_on_layers() :
+
+            if callback and callback(text="Contour2dCutter: projecting " \
+                        + "layer %d/%d" % (current_layer_num, num_of_layers)):
+                # cancel requested
+                quit_requested = True
+                break
+
             equations.clear()
             planeInf = Plane(Point(0, 0, height), self.grid.up_vector)
             planeSup = Plane(Point(0, 0, INFINITE), self.grid.up_vector)
@@ -396,8 +408,13 @@ class Contour2dCutter(object) :
                 projection = planeInf.get_line_projection(line)
                 self.grid.discretise_line(projection)
             #self.grid.display_complete_layer(height)
+
+            progress_counter.increment()
+
+        if quit_requested : return
+
         #self.grid.draw_contour_PBM()
-        self.pa.initialise(self.grid)
+        self.pa.initialise(self.grid, callback)
         self.pa.do_path()
         #self.grid.free_memory()
         return self.pa.paths

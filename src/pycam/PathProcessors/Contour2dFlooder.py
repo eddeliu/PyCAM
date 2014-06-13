@@ -11,6 +11,10 @@ from solvinggraph import SolvingGraph
 from numpy import zeros as numpy_zeros
 from sys import getsizeof
 
+from pycam.Utils import ProgressCounter
+import pycam.Utils.log
+log = pycam.Utils.log.get_logger()
+
 class Pocket(object) :
     id = 1
 
@@ -130,22 +134,44 @@ class Contour2dFlooder(BasePathProcessor) :
         self.maxz = None
         self.grid = None
         self._layer = None
+        self._callback = None
+        self._nb_pockets = None
+        self._current_nb_pocket = None
+        self._quit_requested = None
+        self._progress_counter = None
 
-    def initialise(self, grid) :
+    def initialise(self, grid, callback) :
         self.maxx = grid.nb_lines - 1
         self.maxy = grid.nb_columns - 1
         self.maxz = grid.nb_layers - 1
         self.grid = grid
+        self._callback = callback
+        self._nb_pockets = 0
+        self._current_nb_pocket = 1
+        self._quit_requested = False
 
     def do_path(self) :
+        progress_counter = ProgressCounter(self.maxz, self._callback)
         for layer in xrange(self.maxz+1) :
+            if self._callback and self._callback(text="Contour2dCutter: pocketing " \
+                        + "layer %d/%d" % (layer+1, self.maxz)):
+                # cancel requested
+                return
             self.do_layer(self.maxz - layer)
+            progress_counter.increment()
         #self.draw_pocket_PBM()
+        self._progress_counter = ProgressCounter(self._nb_pockets, self._callback)
         box_path = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1)) # TODO: skypocket
         self.paths.append(Path())
         map(self.paths[0].append, (box.get_center() for box in box_path))
 
     def find_path_from(self, start_box) :
+        if self._callback and self._callback(text="Contour2dCutter: toolpathing " \
+                    + "pocket %d/%d" % (self._current_nb_pocket, self._nb_pockets)):
+            # cancel requested
+            self._quit_requested = True
+            return []
+        self._current_nb_pocket += 1
         #print "find path from", start_box
         start_pocket = start_box.pocket
         print "pocket size :", len(start_pocket.boxes)
@@ -168,11 +194,13 @@ class Contour2dFlooder(BasePathProcessor) :
                         if underneath_pockets[underneath_box.pocket] == 0 :
                             path.extend(self.find_path_from(underneath_box) + [box])
                             path.append(box)
+                            if self._quit_requested : return []
                         # else the pocket cannot be milled yet
                     # else the cutter is not above pocket
                 # else the box has already been milled
         start_pocket.free()
         del start_pocket
+        self._progress_counter.increment()
         return path
 
     def do_layer(self, layer) :
@@ -203,6 +231,7 @@ class Contour2dFlooder(BasePathProcessor) :
         box = self._layer[0][0]
         for x in xrange(self.maxx+1-1) :
             if box.free and not box.scan :
+                self._nb_pockets += 1
                 outside.append(Pocket())
                 self.flood(box, outside[-1].boxes)
             else :
@@ -210,6 +239,7 @@ class Contour2dFlooder(BasePathProcessor) :
             box = box.get_neighbour(1, 0, 0)
         for y in xrange(self.maxy+1-1) :
             if box.free and not box.scan :
+                self._nb_pockets += 1
                 outside.append(Pocket())
                 self.flood(box, outside[-1].boxes)
             else :
@@ -217,6 +247,7 @@ class Contour2dFlooder(BasePathProcessor) :
             box = box.get_neighbour(0, 1, 0)
         for x in xrange(self.maxx+1-1) :
             if box.free and not box.scan :
+                self._nb_pockets += 1
                 outside.append(Pocket())
                 self.flood(box, outside[-1].boxes)
             else :
@@ -224,6 +255,7 @@ class Contour2dFlooder(BasePathProcessor) :
             box = box.get_neighbour(-1, 0, 0)
         for y in xrange(self.maxy+1-2) : # -2 to not iterate again on [0][0]
             if box.free and not box.scan :
+                self._nb_pockets += 1
                 outside.append(Pocket())
                 self.flood(box, outside[-1].boxes)
             else :
@@ -238,6 +270,7 @@ class Contour2dFlooder(BasePathProcessor) :
                 box = self._layer[x][y]
                 if not box.scan and box.free :
                     if not box.inside :
+                        self._nb_pockets += 1
                         inside.append(Pocket())
                         self.flood(box, inside[-1].boxes)
                     else :
