@@ -328,9 +328,9 @@ class SolvingGraph(object) :
 
         # returns from a graph (represented as the dic created above)
         # the number of components containing an even number of vertices
-        def even_sized_connected_component_number(edges_by_vertex, removed_edge):
-            if (removed_edge != None) and (edges_by_vertex[removed_edge[0]] == 1 \
-                                        or edges_by_vertex[removed_edge[1]] == 1) :
+        def even_sized_connected_component_number(edges_by_vertex,removed_edge):
+            if (removed_edge != None)and(edges_by_vertex[removed_edge[0]] == 1 \
+                                    or edges_by_vertex[removed_edge[1]] == 1) :
                 return None
             seen = {}
             even_sized = 0
@@ -346,7 +346,8 @@ class SolvingGraph(object) :
                             card += 1
                             for edge in edges_by_vertex[v] :
                                 if edge != removed_edge :
-                                    vertices_left.append(edge[0] if edge[1] == v else edge[1])
+                                    vertices_left.append(edge[0] if edge[1] == v
+                                                    else edge[1])
                     if card%2 == 0 : even_sized += 1
                     current_component += 1
             return even_sized
@@ -357,10 +358,12 @@ class SolvingGraph(object) :
         # more connected component of odd size
         # if yes, delete this edge else keep it
         current_edge_index = 0
-        previous_number = even_sized_connected_component_number(edges_by_vertex, None)
+        previous_number = \
+            even_sized_connected_component_number(edges_by_vertex, None)
         while current_edge_index < len(F):
             edge = F[current_edge_index]
-            new_number = even_sized_connected_component_number(edges_by_vertex, edge)
+            new_number = \
+                even_sized_connected_component_number(edges_by_vertex, edge)
             if (new_number is None) or (new_number <= previous_number) :
                 current_edge_index += 1
             else:
@@ -376,7 +379,8 @@ class SolvingGraph(object) :
                 len_sup_2_vertexes = []
                 # analyze connex vertexes
                 for edge in edges_by_vertex[vertex] :
-                    num_of_edges = len(edges_by_vertex[edge[0]+edge[1]-vertex]) # math hack : a+b-a = b
+                    num_of_edges = len(edges_by_vertex[edge[0]+edge[1]-vertex])
+                                                        # math trick : a+b-a = b
                     if num_of_edges == 1 : len1_vertexes.append(edge)
                     elif num_of_edges > 2 : len_sup_2_vertexes.append(edge)
                 # find good pair
@@ -386,7 +390,8 @@ class SolvingGraph(object) :
                     edge1,edge2 = len_sup_2_vertexes[0], len_sup_2_vertexes[1]
                 # create shortcut and update edges
                 shortcut = [edge1[edge1.index(edge1[0]+edge1[1]-vertex)],
-                            edge2[edge2.index(edge2[0]+edge2[1]-vertex)]] # same math hack
+                            edge2[edge2.index(edge2[0]+edge2[1]-vertex)]]
+                                                # same math trick
                 for vertex in shortcut :
                     edges_by_vertex[vertex].append(shortcut)
                 for vertex1,vertex2 in zip(edge1,edge2) :
@@ -432,20 +437,22 @@ class SolvingGraph(object) :
         The DOT file can be further processed to produce
         a PNG file which make everything clear, to do so :
         dot -Tpng name.dot -o name.png"""
-        with open(name+".dot", 'w') as edges_file :
-            with open(name+"_sol.dot", 'w') as sol_file :
-                h = {}
-                for edge in edges :
-                    h[edge[0]*self.size+edge[1]] = 1
-                edges_file.write("graph {\n")
-                sol_file.write("graph {\n")
-                for line in xrange(self.size) :
-                    for column in xrange(self.size) :
-                        if line != column :
-                            if line*self.size+column in h :
-                                edges_file.write("\t%s -- %s [label=%s, color=red];\n" % (line, column, self.matrix.item(line, column)))
-                                sol_file.write("\t%s -- %s;\n" % (line, column))
-                            elif column > line :
-                                edges_file.write("\t%s -- %s [label=%s];\n" % (line, column, self.matrix.item(line, column)))
-                edges_file.write("}\n")
-                sol_file.write("}\n")
+        with open(name+".dot", 'w') as edges_file, \
+            open(name+"_sol.dot", 'w') as sol_file :
+            h = {}
+            for edge in edges :
+                h[edge[0]*self.size+edge[1]] = 1
+            edges_file.write("graph {\n")
+            sol_file.write("graph {\n")
+            for line in xrange(self.size) :
+                for column in xrange(self.size) :
+                    if line == column : continue
+                    if line*self.size+column in h :
+                        edges_file.write("\t%s -- %s [label=%s, color=red];\n" \
+                            % (line, column, self.matrix.item(line, column)))
+                        sol_file.write("\t%s -- %s;\n" % (line, column))
+                    elif column > line :
+                        edges_file.write("\t%s -- %s [label=%s];\n" \
+                            % (line, column, self.matrix.item(line, column)))
+            edges_file.write("}\n")
+            sol_file.write("}\n")

@@ -1,21 +1,39 @@
 # -*- coding: utf-8 -*-
 """
-stuff
+This file is part of PyCAM.
+
+PyCAM is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+PyCAM is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with PyCAM.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pycam.PathProcessors import BasePathProcessor
-# use Grid and Box objects from Contour2dCutter
-from pycam.Geometry.Path import Path
-import heapq # for Dijkstra's algorithm optimisation (using priority queue)
-from pycam.Utils.SolvingGraph import SolvingGraph
 from numpy import zeros as numpy_zeros
-from sys import getsizeof
+import heapq # for Dijkstra's algorithm optimisation (using priority queue)
 
+from pycam.PathProcessors import BasePathProcessor
+from pycam.Geometry.Path import Path
+from pycam.Utils.SolvingGraph import SolvingGraph
 from pycam.Utils import ProgressCounter
+
 import pycam.Utils.log
 log = pycam.Utils.log.get_logger()
 
 class Pocket(object) :
+    """A block of boxes that all have to be milled
+
+    That class holds its boxes, above and underneath pockets to
+    simplify toolpathing, and realizes it by solving eulerian path
+    within the graph formed by its boxes."""
+
     id = 1
 
     def __init__(self) :
@@ -29,20 +47,17 @@ class Pocket(object) :
         self.solved_path = None
 
     @property
-    def bottom(self) : return not self.pockets_underneath
+    def bottom(self) :
+        """If the pocket has not underlying pockets"""
+        return not self.pockets_underneath
 
     @property
-    def size(self) : return len(self.boxes)
+    def size(self) :
+        """The size of the pocket"""
+        return len(self.boxes)
 
-    def free(self) :
-        #print "size of", self, getsizeof(self)
-        #print "\tsize of boxes", getsizeof(self.boxes)
-        #print "\tsize of above", getsizeof(self.pocket_above)
-        #print "\tsize of underneath", getsizeof(self.pockets_underneath)
-        #print "\tsize of distance", getsizeof(self.matrix_distance)
-        #print "\tsize of predecessor", getsizeof(self.matrix_predecessor)
-        #print "\tsize of path", getsizeof(self.solved_path)
-        #print "\ttotal size :", sum(map(getsizeof, (self, self.boxes, self.pocket_above, self.pockets_underneath, self.matrix_distance, self.matrix_predecessor, self.solved_path))) 
+    def free_memory(self) :
+        """Attempt to free RAM"""
         del self.boxes[:]
         del self.boxes
         del self.pocket_above
@@ -56,10 +71,16 @@ class Pocket(object) :
         del self.solved_path
 
     def __str__(self) :
+        """Return a not-so-awful visualisation of a pocket"""
         return("Pocket %s (%s / %s) [%s]" % (self.id, self.pocket_above.id if self.pocket_above else "0", \
             ','.join(str(pocket.id) for pocket in self.pockets_underneath), len(self.boxes)))
 
     def compute_dijkstra(self) :
+        """Computes Dijkstra's algorithme for each box in it
+
+        It permits to fill the two matrices that respectively hold
+        the minimal distance between two boxes and the box to do so.
+        It is used after by SolvingGraph to solve the path."""
         # build matrices to hold results
         length = len(self.boxes)
         matrix_distance = numpy_zeros(shape=(length,length))
@@ -99,9 +120,16 @@ class Pocket(object) :
         self.matrix_predecessor = matrix_predecessor
 
     def solve_path(self) :
-        print "dijkstra computation begin ..."
+        """Creates the path for the upcoming find_path_from
+
+        It computes Disjkstra, feed Christofides with it,
+        but what it gets is the solution for a complete graph.
+        So we have now to process the edges found into actual
+        box path. For this, we use the predecessor matrix
+        we have filled formerly."""
+        log.info("dijkstra computation begin ...")
         self.compute_dijkstra()
-        print "dijkstra computation ended"
+        log.info("dijkstra computation ended")
         graph = SolvingGraph(self.matrix_distance)
         index_path = graph.christofides()
         box_path = [self.boxes[index[0]] for index in index_path] + [self.boxes[index_path[0][0]]]
@@ -121,13 +149,25 @@ class Pocket(object) :
         self.solved_path = real_path
 
     def solve_path_from(self, box) :
+        """Solve the path, and start it from a given box"""
         self.solve_path()
         cut = self.solved_path.index(box)
         return self.solved_path[cut:] + self.solved_path[:cut]
 
+
 class Contour2dFlooder(BasePathProcessor) :
+    """PathProcessor for Contour2dCutter : pocketing, graph solving
+
+    It works on the grid Contour2dCutter created and filled with free
+    or empty boxes. Layer by layer, it detects the pockets, solve path
+    for each and then find the global path accross all pockets."""
 
     def __init__(self) :
+        """Creates the path processor
+
+        Indeed, it doesn't initialise it because it is created way
+        before it is used, so there is a real method "initialise" that
+        do the real job for when the path processor is actually needed"""
         super(Contour2dFlooder, self).__init__()
         self.maxx = None
         self.maxy = None
@@ -141,6 +181,7 @@ class Contour2dFlooder(BasePathProcessor) :
         self._progress_counter = None
 
     def initialise(self, grid, callback) :
+        """Initialise the path processor from grid"""
         self.maxx = grid.nb_lines - 1
         self.maxy = grid.nb_columns - 1
         self.maxz = grid.nb_layers - 1
@@ -151,6 +192,10 @@ class Contour2dFlooder(BasePathProcessor) :
         self._quit_requested = False
 
     def do_path(self) :
+        """Computes the toolpath, starting from top [0][0] of grid"""
+        # TODO: take care of the top pocket which could be filled,
+        # particulary top[0][0] or can be several pockets
+        # => don't forget to remove the "+1" for actual Grid creation
         progress_counter = ProgressCounter(self.maxz, self._callback)
         for layer in xrange(self.maxz+1) :
             if self._callback and self._callback(text="Contour2dCutter: pocketing " \
@@ -161,11 +206,13 @@ class Contour2dFlooder(BasePathProcessor) :
             progress_counter.increment()
         #self.draw_pocket_PBM()
         self._progress_counter = ProgressCounter(self._nb_pockets, self._callback)
-        box_path = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1)) # TODO: skypocket
+        box_path = self.find_path_from(self.grid.get_box(0, 0, self.grid.nb_layers-1))
+            # there is the hack part --^
         self.paths.append(Path())
         map(self.paths[0].append, (box.get_center() for box in box_path))
 
     def find_path_from(self, start_box) :
+        """Return the path within the pocket, starting from this box"""
         if self._callback and self._callback(text="Contour2dCutter: toolpathing " \
                     + "pocket %d/%d" % (self._current_nb_pocket, self._nb_pockets)):
             # cancel requested
@@ -198,12 +245,13 @@ class Contour2dFlooder(BasePathProcessor) :
                         # else the pocket cannot be milled yet
                     # else the cutter is not above pocket
                 # else the box has already been milled
-        start_pocket.free()
+        start_pocket.free_memory()
         del start_pocket
         self._progress_counter.increment()
         return path
 
     def do_layer(self, layer) :
+        """Proceeds pockets of one layer"""
         self._layer = self.grid.layers[layer]
         outside = self.do_outside()
         inside = self.do_inside()
@@ -211,6 +259,7 @@ class Contour2dFlooder(BasePathProcessor) :
         self.do_overhang()
 
     def display_layer(self) :
+        """Display one layer, for debugging"""
         print '\n'*20
         for line in self._layer :
             for column in line :
@@ -218,6 +267,12 @@ class Contour2dFlooder(BasePathProcessor) :
             print ''
 
     def do_overhang(self) :
+        """Ensure that there is no filled box above free ones
+
+        This is an optionnal safety guard. But if it is not
+        applied and the model have overhangs, you will get
+        toolpath such the tool handle will collide with objet,
+        resulting in very costly and annoying results"""
         for x in xrange(self.maxx) :
             for y in xrange(self.maxy) :
                 box = self._layer[x][y]
@@ -227,6 +282,13 @@ class Contour2dFlooder(BasePathProcessor) :
                         box.scan = True
 
     def do_outside(self) :
+        """Proceed "outside" pockets
+
+        An outside pocket is a pocket whose at least one box
+        is on the edge of the grid. Empirically there is a ton
+        of this pocket, so we use a very simple method to check
+        them out, so it have a low cost. It is indeed just four
+        for loops with the exact same body."""
         outside = []
         box = self._layer[0][0]
         for x in xrange(self.maxx+1-1) :
@@ -264,6 +326,11 @@ class Contour2dFlooder(BasePathProcessor) :
         return outside
 
     def do_inside(self) :
+        """Finds pockets inside the object
+
+        This method is a bit more costly because it have to iterate
+        over every box to check if it has be scanned, and if no if
+        it belongs to a box."""
         inside = []
         for x in xrange(1, self.maxx) :
             for y in xrange(1, self.maxy) :
@@ -278,9 +345,12 @@ class Contour2dFlooder(BasePathProcessor) :
         return inside
 
     def flood(self, box, pocket) :
-        # see en.wikipedia.org/wiki/Flood_fill
-        # alternative implementation of the algorithm
-        # using a stack and 2 loops (east and west)
+        """Floods all boxes of a pocket
+
+        This is the algorithm FloodFill (see
+        en.wikipedia.org/wiki/Flood_fill)
+        But it has an alternative implementation :
+        it uses a stack and two loops (east and west)"""
         if not box.free : return
         stack = []
         stack.append(box)
@@ -310,6 +380,7 @@ class Contour2dFlooder(BasePathProcessor) :
                         if south.free : stack.append(south)
 
     def link_pockets(self, pockets) :
+        """Links the pockets with each other, for upcoming path finding"""
         for pocket in pockets :
             if pocket.boxes[0].z != self.maxz :
                 pocket.pocket_above = pocket.boxes[0].get_neighbour(0, 0, 1).pocket
@@ -320,11 +391,15 @@ class Contour2dFlooder(BasePathProcessor) :
                 self.link_pocket(pocket)
 
     def link_pocket(self, pocket) :
+        """Links the boxes to their pocket, for upcoming path finding"""
         for box in pocket.boxes :
             box.pocket = pocket
             box.know_your_free_neighbours()
 
     def draw_pocket_PBM(self) :
+        """It creates representation of the pocket for each layer
+
+        The output is a PBM file, you can look it graphically""" 
         for nb_layer in xrange(self.grid.nb_layers) :
             with open("pocket_%d.pbm"%(nb_layer+1), "w") as pocketfile :
                 pocketfile.write("P1\n")

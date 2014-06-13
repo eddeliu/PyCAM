@@ -43,14 +43,17 @@ class DisjointSet(object) :
 
     def find(self, value) :
         """Get the representative of the group value belong to"""
-        while self.representatives[value] != self.representatives[self.representatives[value]] :
-            self.representatives[value] = self.representatives[self.representatives[value]]
+        while self.representatives[value] != \
+                self.representatives[self.representatives[value]] :
+            self.representatives[value] = \
+                self.representatives[self.representatives[value]]
         return self.representatives[value]
         # this is an other way to do it equally faster but less clearer :
         #this_repr = self.representatives[value]
         #repr_of_this_repr = self.representatives[this_repr]
         #while this_repr != repr_of_this_repr :
-            #self.representatives[this_repr] = self.representatives[repr_of_this_repr]
+            #self.representatives[this_repr] = \
+                #self.representatives[repr_of_this_repr]
             #this_repr = self.representatives[this_repr]
             #repr_of_this_repr = self.representatives[this_repr]
         #return this_repr
@@ -70,5 +73,6 @@ class DisjointSet(object) :
 
     def disp(self) :
         print('Disjoint set')
-        print(' '.join('{0}'.format(self.representatives[value], 3) for value in self.values))
+        print(' '.join('{0}'.format(self.representatives[value], 3) \
+                                                    for value in self.values))
         print(' '.join('{0}'.format(value, 3) for value in self.values))
